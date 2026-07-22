@@ -1,13 +1,11 @@
 // ficheiro: src/screens/HomeScreen.js
 import React, {useState, useEffect} from 'react';
-import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import ExpenseCard from '../components/ExpenceCard';
-import { family, essentialExpenses } from '../utils/DbSeeder';
-import { collection, addDoc, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/Firebase';
-
 
 export default function HomeScreen() {
     // Estado para controlar a visibilidade da janela de novo gasto
@@ -18,61 +16,116 @@ export default function HomeScreen() {
     const [novaCategoria, setNovaCategoria] = useState('');
     const [quemGastou, setQuemGastou] = useState('Eu');
 
-    // 1. NOVO: Estado para guardar a lista real de gastos
     const [gastosVariaveis, setGastosVariaveis] = useState([]);
+    const [rendas, setRendas] = useState({ Eu: 0, Parceira: 0 });
+    const [despesasEssenciais, setDespesasEssenciais] = useState([]);
 
-    // 2. NOVO: O "Radar" do Firebase em Tempo Real
     useEffect(() => {
-        // onSnapshot fica a escutar a coleção constantemente
-        const unsubscribe = onSnapshot(collection(db, 'gastos_variaveis'), (snapshot) => {
-            const listaGastos = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
+        // Escuta 1: As Configurações (Ordenados e Contas Fixas)
+        const unsubConfig = onSnapshot(doc(db, 'familias', 'nossa_casa'), (docSnap) => {
+            if (docSnap.exists()) {
+                const dados = docSnap.data();
+                setRendas(dados.rendas || { Eu: 0, Parceira: 0 });
+                setDespesasEssenciais(dados.despesasFixas || []);
+            }
+        });
 
-            // Atualiza o ecrã com os dados que vieram da nuvem
+        // Escuta 2: Os Gastos do dia a dia
+        const unsubGastos = onSnapshot(collection(db, 'gastos_variaveis'), (snapshot) => {
+            const listaGastos = snapshot.docs.map(documento => ({
+                id: documento.id,
+                ...documento.data()
+            }));
             setGastosVariaveis(listaGastos);
         });
 
-        // Boa prática: desligar o radar se sairmos do ecrã
-        return () => unsubscribe();
+        return () => {
+            unsubConfig();
+            unsubGastos();
+        };
     }, []);
 
     // Cálculos Automáticos
-    const totalRenda = family.reduce((soma, pessoa) => soma + pessoa.rendaMensal, 0);
-    const totalEssenciais = essentialExpenses.reduce((soma, despesa) => soma + despesa.valor, 0);
+    const totalRenda = rendas.Eu + rendas.Parceira;
+    const totalEssenciais = despesasEssenciais.reduce((soma, despesa) => soma + despesa.valor, 0);
     const totalVariaveis = gastosVariaveis.reduce((soma, despesa) => soma + despesa.valor, 0);
     const saldoDisponivel = totalRenda - totalEssenciais - totalVariaveis;
 
+    // NOVO: Guarda o ID do gasto que estamos a editar (null significa que estamos a criar um novo)
+    const [gastoEmEdicao, setGastoEmEdicao] = useState(null);
+
+    // Função que abre quando clicas num cartão
+    const gerirGasto = (despesa) => {
+        Alert.alert(
+            "Gerir Gasto",
+            `O que desejas fazer com a despesa de ${despesa.loja}?`,
+            [
+                { text: "Cancelar", style: "cancel" },
+                {
+                    text: "Editar",
+                    onPress: () => {
+                        // Preenche o formulário com os dados antigos e abre a janela
+                        setNovoValor(despesa.valor.toString().replace('.', ','));
+                        setNovaLoja(despesa.loja);
+                        setNovaCategoria(despesa.categoria);
+                        setQuemGastou(despesa.quem);
+                        setGastoEmEdicao(despesa.id); // Avisa que estamos a editar!
+                        setModalVisivel(true);
+                    }
+                },
+                {
+                    text: "Apagar",
+                    style: "destructive", // Fica a vermelho no iPhone
+                    onPress: async () => {
+                        try {
+                            await deleteDoc(doc(db, 'gastos_variaveis', despesa.id));
+                        } catch (error) {
+                            alert("Erro ao apagar o gasto.");
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     const guardarGasto = async () => {
-        if (!novoValor || !novaLoja) {
-            alert("Por favor, preenche o valor e a loja!");
+        if (!novoValor || !novaLoja || !novaCategoria) {
+            alert("Por favor, preenche o valor, a loja e a categoria!");
             return;
         }
         try {
             const valorFormatado = parseFloat(novoValor.replace(',', '.'));
-
             const dataAtual = new Date();
             const diaStr = String(dataAtual.getDate()).padStart(2, '0');
             const mesStr = String(dataAtual.getMonth() + 1).padStart(2, '0');
 
-            await addDoc(collection(db, 'gastos_variaveis'), {
+            const dadosGasto = {
                 loja: novaLoja,
                 valor: valorFormatado,
                 data: `${diaStr}/${mesStr}`,
                 quem: quemGastou,
-                categoria: novaCategoria // Categoria padrão por agora
-            });
+                categoria: novaCategoria
+            };
+
+            if (gastoEmEdicao) {
+                // Se temos um ID guardado, ATUALIZA
+                await updateDoc(doc(db, 'gastos_variaveis', gastoEmEdicao), dadosGasto);
+            } else {
+                // Se não temos ID, CRIA NOVO
+                await addDoc(collection(db, 'gastos_variaveis'), dadosGasto);
+            }
 
             console.log("🔥 Sucesso! Gasto gravado no Firebase.");
 
             // 4. Limpar e fechar
             setNovaLoja('');
             setNovoValor('');
+            setNovaCategoria('');
+            setQuemGastou('Eu');
+            setGastoEmEdicao(null);
             setModalVisivel(false);
 
         } catch (error) {
-            console.error("Erro terrível ao guardar: ", error);
             alert("Erro ao gravar. Verifica o terminal do WebStorm.");
         }
     };
@@ -97,7 +150,7 @@ export default function HomeScreen() {
                 {/* Secção 1: Despesas Essenciais */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Despesas Essenciais</Text>
-                    {essentialExpenses.map((item) => (
+                    {despesasEssenciais.map((item) => (
                         <View key={item.id} style={styles.essencialCard}>
                             <View>
                                 <Text style={styles.lojaText}>{item.nome}</Text>
@@ -118,7 +171,7 @@ export default function HomeScreen() {
                         </Text>
                     ) : (
                         gastosVariaveis.map((item) => (
-                            <ExpenseCard key={item.id} expense={item} />
+                            <ExpenseCard key={item.id} expense={item} onTouch={gerirGasto} />
                         ))
                     )}
                 </View>
