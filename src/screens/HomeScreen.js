@@ -4,7 +4,7 @@ import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, Mod
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import ExpenseCard from '../components/ExpenceCard';
-import { collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../services/Firebase';
 
 export default function HomeScreen() {
@@ -12,7 +12,6 @@ export default function HomeScreen() {
     const [modalVisivel, setModalVisivel] = useState(false);
     const [novoValor, setNovoValor] = useState('');
     const [novaLoja, setNovaLoja] = useState('');
-
     const [novaCategoria, setNovaCategoria] = useState('');
     const [quemGastou, setQuemGastou] = useState('Eu');
 
@@ -36,13 +35,13 @@ export default function HomeScreen() {
                 id: documento.id,
                 ...documento.data()
             }));
+
+            listaGastos.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
             setGastosVariaveis(listaGastos);
         });
 
-        return () => {
-            unsubConfig();
-            unsubGastos();
-        };
+        return () => { unsubConfig(); unsubGastos(); };
+
     }, []);
 
     // Cálculos Automáticos
