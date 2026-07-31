@@ -7,6 +7,18 @@ import ExpenseCard from '../components/ExpenceCard';
 import { collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../services/Firebase';
 
+const obterTimestamp = (gasto) => {
+    if (Number.isFinite(gasto.timestamp)) return gasto.timestamp;
+    if (typeof gasto.timestamp?.toMillis === 'function') return gasto.timestamp.toMillis();
+
+    const [dia, mes] = String(gasto.data || '').split('/').map(Number);
+    if (dia > 0 && mes > 0 && mes <= 12) {
+        return new Date(new Date().getFullYear(), mes - 1, dia).getTime();
+    }
+
+    return 0;
+};
+
 export default function HomeScreen() {
     // Estado para controlar a visibilidade da janela de novo gasto
     const [modalVisivel, setModalVisivel] = useState(false);
@@ -14,6 +26,7 @@ export default function HomeScreen() {
     const [novaLoja, setNovaLoja] = useState('');
     const [novaCategoria, setNovaCategoria] = useState('');
     const [quemGastou, setQuemGastou] = useState('Eu');
+    const [gastoEmEdicao, setGastoEmEdicao] = useState(null);
 
     const [gastosVariaveis, setGastosVariaveis] = useState([]);
     const [rendas, setRendas] = useState({ Eu: 0, Parceira: 0 });
@@ -36,7 +49,7 @@ export default function HomeScreen() {
                 ...documento.data()
             }));
 
-            listaGastos.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            listaGastos.sort((a, b) => obterTimestamp(b) - obterTimestamp(a));
             setGastosVariaveis(listaGastos);
         });
 
@@ -45,13 +58,67 @@ export default function HomeScreen() {
     }, []);
 
     // Cálculos Automáticos
-    const totalRenda = rendas.Eu + rendas.Parceira;
-    const totalEssenciais = despesasEssenciais.reduce((soma, despesa) => soma + despesa.valor, 0);
-    const totalVariaveis = gastosVariaveis.reduce((soma, despesa) => soma + despesa.valor, 0);
+    const totalRenda = (Number(rendas.Eu) || 0) + (Number(rendas.Parceira) || 0);
+    const totalEssenciais = despesasEssenciais.reduce((soma, despesa) => soma + (Number(despesa.valor) || 0), 0);
+    const totalVariaveis = gastosVariaveis.reduce((soma, despesa) => soma + (Number(despesa.valor) || 0), 0);
     const saldoDisponivel = totalRenda - totalEssenciais - totalVariaveis;
 
-    // NOVO: Guarda o ID do gasto que estamos a editar (null significa que estamos a criar um novo)
-    const [gastoEmEdicao, setGastoEmEdicao] = useState(null);
+    const alternarPagamentoFixo = async (id, estadoAtual) => {
+        try {
+            const novaLista = despesasEssenciais.map(item =>
+                item.id === id ? { ...item, pago: !estadoAtual } : item
+            );
+
+            // Envia a lista atualizada para o Firebase
+            await setDoc(doc(db, 'familias', 'nossa_casa'), {
+                despesasFixas: novaLista
+            }, { merge: true });
+
+        } catch (error) {
+            alert("Erro ao atualizar o estado da conta.");
+        }
+    };
+
+    const guardarGasto = async () => {
+        if (!novoValor || !novaLoja || !novaCategoria) {
+            alert("Por favor, preenche todos os campos!");
+            return;
+        }
+
+        try {
+            const valorFormatado = Number(novoValor.trim().replace(',', '.'));
+            if (!Number.isFinite(valorFormatado) || valorFormatado <= 0) {
+                alert("Indica um valor superior a zero.");
+                return;
+            }
+            const dataAtual = new Date();
+            const diaStr = String(dataAtual.getDate()).padStart(2, '0');
+            const mesStr = String(dataAtual.getMonth() + 1).padStart(2, '0');
+
+            const dadosGasto = {
+                loja: novaLoja,
+                valor: valorFormatado,
+                data: `${diaStr}/${mesStr}`,
+                quem: quemGastou,
+                categoria: novaCategoria,
+                timestamp: Date.now(), // <-- CARIMBO DE TEMPO PARA ORDENAÇÃO
+            };
+
+            if (gastoEmEdicao) {
+                const dadosAtualizados = { ...dadosGasto };
+                delete dadosAtualizados.timestamp;
+                await updateDoc(doc(db, 'gastos_variaveis', gastoEmEdicao), dadosAtualizados);
+            } else {
+                await addDoc(collection(db, 'gastos_variaveis'), dadosGasto);
+            }
+
+            setNovaLoja(''); setNovoValor(''); setNovaCategoria(''); setQuemGastou('Eu');
+            setGastoEmEdicao(null); setModalVisivel(false);
+
+        } catch (error) {
+            alert("Erro ao gravar. Verifica a ligação.");
+        }
+    };
 
     // Função que abre quando clicas num cartão
     const gerirGasto = (despesa) => {
@@ -87,83 +154,54 @@ export default function HomeScreen() {
         );
     };
 
-    const guardarGasto = async () => {
-        if (!novoValor || !novaLoja || !novaCategoria) {
-            alert("Por favor, preenche o valor, a loja e a categoria!");
-            return;
-        }
-        try {
-            const valorFormatado = parseFloat(novoValor.replace(',', '.'));
-            const dataAtual = new Date();
-            const diaStr = String(dataAtual.getDate()).padStart(2, '0');
-            const mesStr = String(dataAtual.getMonth() + 1).padStart(2, '0');
-
-            const dadosGasto = {
-                loja: novaLoja,
-                valor: valorFormatado,
-                data: `${diaStr}/${mesStr}`,
-                quem: quemGastou,
-                categoria: novaCategoria
-            };
-
-            if (gastoEmEdicao) {
-                // Se temos um ID guardado, ATUALIZA
-                await updateDoc(doc(db, 'gastos_variaveis', gastoEmEdicao), dadosGasto);
-            } else {
-                // Se não temos ID, CRIA NOVO
-                await addDoc(collection(db, 'gastos_variaveis'), dadosGasto);
-            }
-
-            console.log("🔥 Sucesso! Gasto gravado no Firebase.");
-
-            // 4. Limpar e fechar
-            setNovaLoja('');
-            setNovoValor('');
-            setNovaCategoria('');
-            setQuemGastou('Eu');
-            setGastoEmEdicao(null);
-            setModalVisivel(false);
-
-        } catch (error) {
-            alert("Erro ao gravar. Verifica o terminal do WebStorm.");
-        }
-    };
-
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar style="light" />
 
-            {/* Cabeçalho do Orçamento */}
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Orçamento Familiar</Text>
                 <Text style={styles.saldoText}>{saldoDisponivel.toFixed(2)} €</Text>
                 <Text style={styles.saldoLabel}>Disponível este Mês</Text>
-
                 <View style={styles.resumoRow}>
                     <Text style={styles.resumoText}>Ganhos: +{totalRenda.toFixed(0)}€</Text>
-                    <Text style={styles.resumoText}>Fixo/Essencial: -{totalEssenciais.toFixed(0)}€</Text>
+                    <Text style={styles.resumoText}>Fixo: -{totalEssenciais.toFixed(0)}€</Text>
                 </View>
             </View>
 
             <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-                {/* Secção 1: Despesas Essenciais */}
+
+                {/* SECÇÃO DAS DESPESAS FIXAS */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Despesas Essenciais</Text>
+                    <Text style={styles.sectionTitle}>Despesas Fixas</Text>
                     {despesasEssenciais.map((item) => (
-                        <View key={item.id} style={styles.essencialCard}>
-                            <View>
-                                <Text style={styles.lojaText}>{item.nome}</Text>
-                                <Text style={styles.detalheText}>{item.tipo}</Text>
+                        <TouchableOpacity
+                            key={item.id}
+                            // Se estiver pago, aplica o estilo de opacidade
+                            style={[styles.essencialCard, item.pago && styles.essencialCardPago]}
+                            activeOpacity={0.7}
+                            onPress={() => alternarPagamentoFixo(item.id, item.pago)}
+                        >
+                            <View style={styles.essencialInfoRow}>
+                                {/* Ícone dinâmico: Visto verde se pago, Círculo vazio se não pago */}
+                                <Ionicons
+                                    name={item.pago ? "checkmark-circle" : "ellipse-outline"}
+                                    size={26}
+                                    color={item.pago ? "#10B981" : "#D1D5DB"}
+                                    style={{ marginRight: 12 }}
+                                />
+                                <View>
+                                    <Text style={[styles.lojaText, item.pago && styles.textoRiscado]}>{item.nome}</Text>
+                                    <Text style={styles.detalheText}>{item.pago ? "Pago" : "Pendente"}</Text>
+                                </View>
                             </View>
-                            <Text style={styles.valorFixo}>-{item.valor.toFixed(2)} €</Text>
-                        </View>
+                            <Text style={[styles.valorFixo, item.pago && styles.textoRiscado]}>-{item.valor.toFixed(2)} €</Text>
+                        </TouchableOpacity>
                     ))}
                 </View>
 
-                {/* Secção 2: Últimos Movimentos */}
+                {/* SECÇÃO DOS GASTOS VARIÁVEIS (AGORA ORDENADOS) */}
                 <View style={[styles.section, { paddingBottom: 100 }]}>
                     <Text style={styles.sectionTitle}>Gastos Variáveis</Text>
-                    {/* Se não houver gastos, mostra uma mensagem amigável */}
                     {gastosVariaveis.length === 0 ? (
                         <Text style={{ color: '#6B7280', fontStyle: 'italic', marginTop: 10 }}>
                             Ainda não há gastos registados este mês.
@@ -175,79 +213,38 @@ export default function HomeScreen() {
                     )}
                 </View>
             </ScrollView>
-            {/* O NOSSO BOTÃO FLUTUANTE (FAB) */}
-            <TouchableOpacity
-                style={styles.fab}
-                activeOpacity={0.8}
-                onPress={() => setModalVisivel(true)}
-            >
+
+            {/* Botão Flutuante e Modal... (Mantém-se inalterado) */}
+            <TouchableOpacity style={styles.fab} activeOpacity={0.8} onPress={() => {
+                setGastoEmEdicao(null); setNovaLoja(''); setNovoValor(''); setNovaCategoria(''); setModalVisivel(true);
+            }}>
                 <Ionicons name="add" size={32} color="#FFFFFF" />
             </TouchableOpacity>
 
-            {/* A JANELA MODAL PARA ADICIONAR GASTO */}
-            <Modal
-                animationType="fade"
-                transparent={true}
-                visible={modalVisivel}
-                onRequestClose={() => setModalVisivel(false)}
-            >
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={styles.modalFundo}
-                >
+            <Modal animationType="fade" transparent={true} visible={modalVisivel} onRequestClose={() => setModalVisivel(false)}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Adicionar Gasto Manual</Text>
-                            <TouchableOpacity onPress={() => setModalVisivel(false)}>
-                                <Ionicons name="close" size={28} color="#6B7280" />
-                            </TouchableOpacity>
+                            <Text style={styles.modalTitle}>{gastoEmEdicao ? "Editar Gasto" : "Adicionar Gasto"}</Text>
+                            <TouchableOpacity onPress={() => setModalVisivel(false)}><Ionicons name="close" size={28} color="#6B7280" /></TouchableOpacity>
                         </View>
 
-                        <TextInput
-                            style={styles.inputGrande}
-                            placeholder="0,00 €"
-                            keyboardType="decimal-pad"
-                            placeholderTextColor="#9CA3AF"
-                            value={novoValor}
-                            onChangeText={setNovoValor}
-                            autoFocus={true}
-                        />
-
-                        <TextInput
-                            style={styles.inputNormal}
-                            placeholder="Onde foi a compra? (ex: Padaria)"
-                            placeholderTextColor="#9CA3AF"
-                            value={novaLoja}
-                            onChangeText={setNovaLoja}
-                        />
-
-                        <TextInput
-                            style={styles.inputNormal}
-                            placeholder="Categoria (ex: Alimentação, Saúde)"
-                            placeholderTextColor="#9CA3AF"
-                            value={novaCategoria}
-                            onChangeText={setNovaCategoria}
-                        />
+                        <TextInput style={styles.inputGrande} placeholder="0,00 €" placeholderTextColor="#9CA3AF" keyboardType="decimal-pad" value={novoValor} onChangeText={setNovoValor} autoFocus={true} />
+                        <TextInput style={styles.inputNormal} placeholder="Onde foi a compra?" placeholderTextColor="#9CA3AF" value={novaLoja} onChangeText={setNovaLoja} />
+                        <TextInput style={styles.inputNormal} placeholder="Categoria" placeholderTextColor="#9CA3AF" value={novaCategoria} onChangeText={setNovaCategoria} />
 
                         <Text style={styles.labelPessoa}>Quem gastou?</Text>
                         <View style={styles.quemContainer}>
-                            <TouchableOpacity
-                                style={[styles.btnQuem, quemGastou === 'Eu' && styles.btnQuemAtivo]}
-                                onPress={() => setQuemGastou('Eu')}
-                            >
+                            <TouchableOpacity style={[styles.btnQuem, quemGastou === 'Eu' && styles.btnQuemAtivo]} onPress={() => setQuemGastou('Eu')}>
                                 <Text style={[styles.btnQuemTexto, quemGastou === 'Eu' && styles.btnQuemTextoAtivo]}>Eu</Text>
                             </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[styles.btnQuem, quemGastou === 'Parceira' && styles.btnQuemAtivo]}
-                                onPress={() => setQuemGastou('Parceira')}
-                            >
+                            <TouchableOpacity style={[styles.btnQuem, quemGastou === 'Parceira' && styles.btnQuemAtivo]} onPress={() => setQuemGastou('Parceira')}>
                                 <Text style={[styles.btnQuemTexto, quemGastou === 'Parceira' && styles.btnQuemTextoAtivo]}>Parceira</Text>
                             </TouchableOpacity>
                         </View>
 
                         <TouchableOpacity style={styles.btnGuardar} onPress={guardarGasto}>
-                            <Text style={styles.btnGuardarTexto}>Guardar Gasto</Text>
+                            <Text style={styles.btnGuardarTexto}>Guardar</Text>
                         </TouchableOpacity>
                     </View>
                 </KeyboardAvoidingView>
@@ -267,29 +264,29 @@ const styles = StyleSheet.create({
     scrollContainer: { flex: 1 },
     section: { padding: 20, paddingBottom: 0 },
     sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937', marginBottom: 15 },
-    essencialCard: { backgroundColor: '#F3F4F6', padding: 16, borderRadius: 12, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
+
+    // Estilos das Despesas Fixas
+    essencialCard: { backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 5, elevation: 1 },
+    essencialInfoRow: { flexDirection: 'row', alignItems: 'center' },
+    essencialCardPago: { opacity: 0.6, backgroundColor: '#F3F4F6' }, // Estilo quando está pago
+    textoRiscado: { textDecorationLine: 'line-through', color: '#9CA3AF' }, // Risca o texto
     lojaText: { fontSize: 16, fontWeight: '700', color: '#111827' },
     detalheText: { fontSize: 12, color: '#6B7280', marginTop: 4 },
     valorFixo: { fontSize: 16, fontWeight: 'bold', color: '#374151' },
 
     fab: { position: 'absolute', bottom: 20, right: 20, backgroundColor: '#1E3A8A', width: 65, height: 65, borderRadius: 35, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 8 },
-
     modalFundo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
     modalContent: { backgroundColor: '#FFFFFF', borderRadius: 25, padding: 25, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 10 },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937' },
-
     inputGrande: { fontSize: 40, fontWeight: 'bold', color: '#1E3A8A', textAlign: 'center', marginBottom: 20, padding: 10 },
-    inputNormal: { backgroundColor: '#F3F4F6', padding: 15, borderRadius: 12, fontSize: 16, marginBottom: 15 }, // Reduzi um pouco a margem inferior
-
-    // Estilos para os novos botões "Quem"
+    inputNormal: { backgroundColor: '#F3F4F6', padding: 15, borderRadius: 12, fontSize: 16, marginBottom: 15, color: '#1F2937' },
     labelPessoa: { fontSize: 14, fontWeight: 'bold', color: '#4B5563', marginBottom: 10, marginTop: 5 },
     quemContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
     btnQuem: { flex: 1, backgroundColor: '#F3F4F6', padding: 15, borderRadius: 12, alignItems: 'center', marginHorizontal: 5, borderWidth: 1, borderColor: 'transparent' },
     btnQuemAtivo: { backgroundColor: '#E0E7FF', borderColor: '#1E3A8A' },
     btnQuemTexto: { fontSize: 16, fontWeight: '600', color: '#6B7280' },
     btnQuemTextoAtivo: { color: '#1E3A8A', fontWeight: 'bold' },
-
     btnGuardar: { backgroundColor: '#10B981', padding: 16, borderRadius: 12, alignItems: 'center' },
     btnGuardarTexto: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' }
 });

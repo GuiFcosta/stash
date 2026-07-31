@@ -1,4 +1,4 @@
-import {initializeApp} from 'firebase/app';
+import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
 // Your web app's Firebase configuration
@@ -12,7 +12,6 @@ const firebaseConfig = {
     appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID
 };
 
-const app = initializeApp(firebaseConfig);
+// Evita uma inicialização duplicada durante atualizações em desenvolvimento.
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const db = getFirestore(app);
-
-console.log("Firebase initialized and Firestore ready.");

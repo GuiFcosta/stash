@@ -34,7 +34,7 @@ export default function App() {
                         iconName = focused ? 'flag' : 'flag-outline';
                     } else if (route.name === 'Por Pessoa') {
                         iconName = focused ? 'pie-chart' : 'pie-chart-outline';
-                    } else if (route.name === 'Perfil') {
+                    } else if (route.name === 'Meu Perfil') {
                         iconName = focused ? 'person' : 'person-outline';
                     }
                     return <Ionicons name={iconName} size={size} color={color} />;

@@ -34,11 +34,17 @@ export default function GoalsScreen() {
 
     const guardarNovoObjetivo = async () => {
         if (!novoTitulo || !novaMeta) { alert("Preenche o título e a meta!"); return; }
+        const meta = Number(novaMeta.trim().replace(',', '.'));
+        const guardado = novoGuardado ? Number(novoGuardado.trim().replace(',', '.')) : 0;
+        if (!Number.isFinite(meta) || !Number.isFinite(guardado) || meta <= 0 || guardado < 0) {
+            alert("Indica valores válidos para a meta e o montante guardado.");
+            return;
+        }
         try {
             await addDoc(collection(db, 'objetivos'), {
                 titulo: novoTitulo,
-                meta: parseFloat(novaMeta.replace(',', '.')) || 0,
-                guardado: parseFloat(novoGuardado.replace(',', '.')) || 0,
+                meta,
+                guardado,
                 icone: novoIcone.trim() === '' ? '🎯' : novoIcone
             });
             setNovoTitulo(''); setNovaMeta(''); setNovoGuardado(''); setNovoIcone('');
@@ -56,11 +62,16 @@ export default function GoalsScreen() {
 
     const guardarEdicao = async () => {
         if (!editTitulo || !editMeta) return;
+        const meta = Number(editMeta.trim().replace(',', '.'));
+        if (!Number.isFinite(meta) || meta <= 0) {
+            alert("Indica uma meta válida superior a zero.");
+            return;
+        }
         try {
             await updateDoc(doc(db, 'objetivos', objetivoSelecionado.id), {
                 titulo: editTitulo,
                 icone: editIcone.trim() === '' ? '🎯' : editIcone,
-                meta: parseFloat(editMeta.replace(',', '.')) || 0
+                meta
             });
             setModalEditarVisivel(false);
             setObjetivoSelecionado(null);
@@ -71,8 +82,11 @@ export default function GoalsScreen() {
         if (!valorMovimento || !objetivoSelecionado) return;
 
         try {
-            const valorAcao = parseFloat(valorMovimento.replace(',', '.'));
-            if (isNaN(valorAcao) || valorAcao <= 0) return;
+            const valorAcao = Number(valorMovimento.trim().replace(',', '.'));
+            if (!Number.isFinite(valorAcao) || valorAcao <= 0) {
+                alert("Indica um valor superior a zero.");
+                return;
+            }
 
             let novoTotalGuardado;
             let valorParaHome;
@@ -102,7 +116,8 @@ export default function GoalsScreen() {
                 valor: valorParaHome,
                 data: `${diaStr}/${mesStr}`,
                 quem: 'Eu',
-                categoria: 'Poupança'
+                categoria: 'Poupança',
+                timestamp: Date.now() // <-- Adiciona só esta linha aqui!
             });
 
             setValorMovimento('');
@@ -127,7 +142,17 @@ export default function GoalsScreen() {
                 { text: "Cancelar", style: "cancel" },
                 { text: "Editar Info", onPress: () => abrirEdicao(objetivo) },
                 { text: "Movimentar Dinheiro", onPress: () => { setObjetivoSelecionado(objetivo); setModalMovimentoVisivel(true); } },
-                { text: "Apagar Meta", style: "destructive", onPress: () => deleteDoc(doc(db, 'objetivos', objetivo.id)) }
+                {
+                    text: "Apagar Meta",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await deleteDoc(doc(db, 'objetivos', objetivo.id));
+                        } catch (error) {
+                            alert("Erro ao apagar a meta.");
+                        }
+                    }
+                }
             ]
         );
     };

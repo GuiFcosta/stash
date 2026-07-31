@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView } from 'react-native';
 import { collection, doc, onSnapshot } from "firebase/firestore";
 import { db } from '../services/Firebase';
 import ExpenseCard from '../components/ExpenceCard';
@@ -39,8 +39,8 @@ export default function SummaryScreen() {
     };
 
     const familiaFirebase = [
-        { id: '1', nome: 'Eu', rendaMensal: rendas.Eu },
-        { id: '2', nome: 'Parceira', rendaMensal: rendas.Parceira },
+        { id: '1', nome: 'Eu', rendaMensal: Number(rendas.Eu) || 0 },
+        { id: '2', nome: 'Parceira', rendaMensal: Number(rendas.Parceira) || 0 },
     ];
 
     return (
@@ -53,8 +53,10 @@ export default function SummaryScreen() {
                 {familiaFirebase.map((pessoa) => {
                     // Filtra os gastos apenas desta pessoa
                     const gastosPessoa = gastosVariaveis.filter(item => item.quem === pessoa.nome);
-                    const totalGasto = gastosPessoa.reduce((soma, item) => soma + item.valor, 0);
-                    const percentagemGasta = ((totalGasto / pessoa.rendaMensal) * 100).toFixed(1);
+                    const totalGasto = gastosPessoa.reduce((soma, item) => soma + (Number(item.valor) || 0), 0);
+                    const percentagemGasta = pessoa.rendaMensal > 0
+                        ? ((totalGasto / pessoa.rendaMensal) * 100).toFixed(1)
+                        : '0.0';
 
                     return (
                         <View key={pessoa.id} style={styles.cardContainer}>

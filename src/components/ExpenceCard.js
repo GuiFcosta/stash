@@ -9,9 +9,10 @@ export default function ExpenseCard({ expense, onTouch }) {
 
     return (
         <TouchableOpacity
-            style={[styles.card, ePoupanca && styles.cardPoupanca]}
+            style={[styles.card, ePoupanca && styles.cardPoupanca, eResgate && styles.cardResgate]}
             activeOpacity={0.7}
-            onPress={() => onTouch(expense)}
+            disabled={!onTouch}
+            onPress={onTouch ? () => onTouch(expense) : undefined}
         >
             <View style={[styles.iconContainer, ePoupanca ? styles.iconPoupanca : styles.iconGasto, eResgate && styles.iconResgate]}>
                 <Ionicons

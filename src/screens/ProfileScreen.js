@@ -14,14 +14,16 @@ export default function ProfileScreen() {
     const [listaFixas, setListaFixas] = useState([]); // Rascunho para edição no Modal
     const [modalFixasVisivel, setModalFixasVisivel] = useState(false);
 
+    const converterEmNumero = (valor) => Number(String(valor).trim().replace(',', '.'));
+
     // 1. O "Radar" das configurações da família
     useEffect(() => {
         const unsubscribe = onSnapshot(doc(db, 'familias', 'nossa_casa'), (docSnap) => {
             if (docSnap.exists()) {
                 const dados = docSnap.data();
                 if (dados.rendas) {
-                    setRendaEu(dados.rendas.Eu.toString());
-                    setRendaParceira(dados.rendas.Parceira.toString());
+                    setRendaEu(String(dados.rendas.Eu ?? 0));
+                    setRendaParceira(String(dados.rendas.Parceira ?? 0));
                 }
                 if (dados.despesasFixas) {
                     setDespesasFixasDB(dados.despesasFixas);
@@ -34,11 +36,18 @@ export default function ProfileScreen() {
     // 2. Guardar as novas rendas no Firebase
     const guardarRendas = async () => {
         try {
+            const eu = converterEmNumero(rendaEu);
+            const parceira = converterEmNumero(rendaParceira);
+            if (!Number.isFinite(eu) || !Number.isFinite(parceira) || eu < 0 || parceira < 0) {
+                alert("Indica rendimentos válidos iguais ou superiores a zero.");
+                return;
+            }
+
             // O { merge: true } garante que não apagamos as despesas fixas quando atualizamos a renda
             await setDoc(doc(db, 'familias', 'nossa_casa'), {
                 rendas: {
-                    Eu: parseFloat(rendaEu.replace(',', '.')) || 0,
-                    Parceira: parseFloat(rendaParceira.replace(',', '.')) || 0
+                    Eu: eu,
+                    Parceira: parceira
                 }
             }, { merge: true });
 
@@ -81,8 +90,14 @@ export default function ProfileScreen() {
                 id: item.id,
                 nome: item.nome || 'Sem Nome',
                 tipo: item.tipo,
-                valor: parseFloat(item.valorString.replace(',', '.')) || 0
+                valor: converterEmNumero(item.valorString),
+                pago: Boolean(item.pago)
             }));
+
+            if (listaLimpa.some(item => !Number.isFinite(item.valor) || item.valor < 0)) {
+                alert("Cada despesa deve ter um valor válido igual ou superior a zero.");
+                return;
+            }
 
             await setDoc(doc(db, 'familias', 'nossa_casa'), {
                 despesasFixas: listaLimpa
