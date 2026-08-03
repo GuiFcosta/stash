@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, Mod
 import { Ionicons } from '@expo/vector-icons';
 import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/Firebase';
+import { chaveDoMes } from '../utils/Month';
 
 export default function GoalsScreen() {
     // Estados da Base de Dados
@@ -117,6 +118,7 @@ export default function GoalsScreen() {
                 data: `${diaStr}/${mesStr}`,
                 quem: 'Eu',
                 categoria: 'Poupança',
+                mesReferencia: chaveDoMes(dataAtual),
                 timestamp: Date.now() // <-- Adiciona só esta linha aqui!
             });
 

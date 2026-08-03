@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView } from 'react-native';
-import { collection, doc, onSnapshot } from "firebase/firestore";
+import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
 import { db } from '../services/Firebase';
 import ExpenseCard from '../components/ExpenceCard';
+import { chaveDoMes } from '../utils/Month';
 
 export default function SummaryScreen() {
     const [expandidoId, setExpandidoId] = useState(null);
 
     const [gastosVariaveis, setGastosVariaveis] = useState([]);
     const [rendas, setRendas] = useState({Eu: 0, Parceira: 0});
+    const mesAtual = chaveDoMes(new Date());
 
     useEffect(() => {
         // Escuta as Configurações (Ordenados)
@@ -20,7 +22,11 @@ export default function SummaryScreen() {
         });
 
         // Escuta os Gastos do dia a dia
-        const unsubGastos = onSnapshot(collection(db, 'gastos_variaveis'), (snapshot) => {
+        const gastosDoMes = query(
+            collection(db, 'gastos_variaveis'),
+            where('mesReferencia', '==', mesAtual),
+        );
+        const unsubGastos = onSnapshot(gastosDoMes, (snapshot) => {
             const listaGastos = snapshot.docs.map(documento => ({
                 id: documento.id,
                 ...documento.data()
@@ -32,7 +38,7 @@ export default function SummaryScreen() {
             unsubConfig();
             unsubGastos();
         };
-    }, []);
+    }, [mesAtual]);
 
     const alternarCartao = (id) => {
         setExpandidoId(expandidoId === id ? null : id);
