@@ -256,7 +256,7 @@ export default function HomeScreen() {
             <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
                 {/* SECÇÃO DAS DESPESAS FIXAS */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Despesas Fixas</Text>
+                    <Text style={styles.sectionTitle}>Despesas Mensais</Text>
                     {despesasEssenciais.map((item) => (
                         <TouchableOpacity
                             key={item.id}
@@ -319,36 +319,70 @@ export default function HomeScreen() {
 
             <Modal animationType="fade" transparent={true} visible={modalVisivel} onRequestClose={() => setModalVisivel(false)}>
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
-                    <View style={styles.modalContent}>
+                    <View style={[styles.modalContent, { maxHeight: '90%' }]}> {/* Limitamos a altura máxima para garantir que não sai do ecrã */}
+
+                        {/* CABEÇALHO FIXO - Fica de fora do ScrollView para estar sempre visível */}
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>{gastoEmEdicao ? "Editar Gasto" : "Adicionar Gasto"}</Text>
-                            <TouchableOpacity onPress={() => setModalVisivel(false)}><Ionicons name="close" size={28} color="#6B7280" /></TouchableOpacity>
-                        </View>
-
-                        <TextInput style={styles.inputGrande} placeholder="0,00 €" placeholderTextColor="#9CA3AF" keyboardType="decimal-pad" value={novoValor} onChangeText={setNovoValor} autoFocus={true} />
-                        <TextInput style={styles.inputNormal} placeholder="Onde foi a compra?" placeholderTextColor="#9CA3AF" value={novaLoja} onChangeText={setNovaLoja} />
-                        <Text style={styles.labelPessoa}>Categoria</Text>
-                        <View style={styles.pickerContainer}>
-                            <Picker selectedValue={novaCategoria} onValueChange={setNovaCategoria}>
-                                {CATEGORIAS_DE_GASTO.map((categoria) => (
-                                    <Picker.Item key={categoria} label={categoria} value={categoria} />
-                                ))}
-                            </Picker>
-                        </View>
-
-                        <Text style={styles.labelPessoa}>Quem gastou?</Text>
-                        <View style={styles.quemContainer}>
-                            <TouchableOpacity style={[styles.btnQuem, quemGastou === 'Eu' && styles.btnQuemAtivo]} onPress={() => setQuemGastou('Eu')}>
-                                <Text style={[styles.btnQuemTexto, quemGastou === 'Eu' && styles.btnQuemTextoAtivo]}>Eu</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.btnQuem, quemGastou === 'Parceira' && styles.btnQuemAtivo]} onPress={() => setQuemGastou('Parceira')}>
-                                <Text style={[styles.btnQuemTexto, quemGastou === 'Parceira' && styles.btnQuemTextoAtivo]}>Parceira</Text>
+                            <TouchableOpacity onPress={() => setModalVisivel(false)}>
+                                <Ionicons name="close" size={28} color="#6B7280" />
                             </TouchableOpacity>
                         </View>
 
-                        <TouchableOpacity style={styles.btnGuardar} onPress={guardarGasto}>
-                            <Text style={styles.btnGuardarTexto}>Guardar</Text>
-                        </TouchableOpacity>
+                        {/* FORMULÁRIO ROLÁVEL - Se o teclado subir, podes fazer scroll no formulário */}
+                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+                            <TextInput
+                                style={styles.inputGrande}
+                                placeholder="0,00 €"
+                                placeholderTextColor="#9CA3AF"
+                                keyboardType="decimal-pad"
+                                value={novoValor}
+                                onChangeText={setNovoValor}
+                                autoFocus={true}
+                            />
+
+                            <TextInput
+                                style={styles.inputNormal}
+                                placeholder="Onde foi a compra?"
+                                placeholderTextColor="#9CA3AF"
+                                value={novaLoja}
+                                onChangeText={setNovaLoja}
+                            />
+
+                            <Text style={styles.labelPessoa}>Categoria</Text>
+                            <View style={styles.pickerContainer}>
+                                <Picker
+                                    selectedValue={novaCategoria}
+                                    onValueChange={setNovaCategoria}
+                                    style={Platform.OS === 'android' ? { color: '#1F2937' } : {}}
+                                    itemStyle={Platform.OS === 'ios' ? { height: 120, fontSize: 16, color: '#1F2937' } : {}}
+                                >
+                                    {CATEGORIAS_DE_GASTO.map((categoria) => (
+                                        <Picker.Item
+                                            key={categoria}
+                                            label={categoria}
+                                            value={categoria}
+                                            color={Platform.OS === 'android' ? '#1F2937' : undefined}
+                                        />
+                                    ))}
+                                </Picker>
+                            </View>
+
+                            <Text style={styles.labelPessoa}>Quem gastou?</Text>
+                            <View style={styles.quemContainer}>
+                                <TouchableOpacity style={[styles.btnQuem, quemGastou === 'Eu' && styles.btnQuemAtivo]} onPress={() => setQuemGastou('Eu')}>
+                                    <Text style={[styles.btnQuemTexto, quemGastou === 'Eu' && styles.btnQuemTextoAtivo]}>Eu</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[styles.btnQuem, quemGastou === 'Parceira' && styles.btnQuemAtivo]} onPress={() => setQuemGastou('Parceira')}>
+                                    <Text style={[styles.btnQuemTexto, quemGastou === 'Parceira' && styles.btnQuemTextoAtivo]}>Parceira</Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            <TouchableOpacity style={styles.btnGuardar} onPress={guardarGasto}>
+                                <Text style={styles.btnGuardarTexto}>Guardar</Text>
+                            </TouchableOpacity>
+                        </ScrollView>
+
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
@@ -358,7 +392,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F5F7FA' },
-    header: { backgroundColor: '#1E3A8A', padding: 30, paddingTop: 60, alignItems: 'center', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
+    header: { backgroundColor: '#1E3A8A', padding: 30, paddingTop: 30, alignItems: 'center' },
     headerTitle: { color: '#93C5FD', fontSize: 14, fontWeight: '600', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 },
     seletorMes: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
     botaoMes: { padding: 6 },
@@ -390,7 +424,7 @@ const styles = StyleSheet.create({
     modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937' },
     inputGrande: { fontSize: 40, fontWeight: 'bold', color: '#1E3A8A', textAlign: 'center', marginBottom: 20, padding: 10 },
     inputNormal: { backgroundColor: '#F3F4F6', padding: 15, borderRadius: 12, fontSize: 16, marginBottom: 15, color: '#1F2937' },
-    pickerContainer: { backgroundColor: '#F3F4F6', borderRadius: 12, marginBottom: 15, overflow: 'hidden' },
+    pickerContainer: { backgroundColor: '#F3F4F6', borderRadius: 12, marginBottom: 15, overflow: 'hidden', paddingHorizontal: Platform.OS === 'android' ? 5 : 0 },
     labelPessoa: { fontSize: 14, fontWeight: 'bold', color: '#4B5563', marginBottom: 10, marginTop: 5 },
     quemContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
     btnQuem: { flex: 1, backgroundColor: '#F3F4F6', padding: 15, borderRadius: 12, alignItems: 'center', marginHorizontal: 5, borderWidth: 1, borderColor: 'transparent' },
