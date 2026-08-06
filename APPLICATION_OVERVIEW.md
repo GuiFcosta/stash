@@ -32,13 +32,14 @@ src/
     SummaryScreen.js           Resumo dos gastos por pessoa
     ProfileScreen.js           Rendimentos e despesas fixas
   components/
-    ExpenceCard.js             Cartão reutilizável de movimento
+    ExpenseCard.js             Cartão reutilizável de movimento
+    CategoryDonutChart.js      Gráfico circular por categoria
+  context/
+    MonthContext.js            Contexto de gestão do mês selecionado
   services/
     Firebase.js                Inicialização do Firebase/Firestore
   theme/
-    Colors.js                  Cores partilhadas (ainda não usadas pelos ecrãs)
-  utils/
-    DbSeeder.js                Dados de exemplo, não ligados ao fluxo da app
+    Colors.js                  Cores partilhadas da aplicação
 ```
 
 ## Experiência e funcionalidades
@@ -58,7 +59,7 @@ O ecrã inicial calcula continuamente:
 
 `saldo disponível = rendimentos totais − despesas fixas − total de movimentos variáveis`
 
-É possível criar, editar e apagar gastos variáveis. Cada gasto guarda valor, estabelecimento, categoria, data e quem o realizou. Os movimentos são apresentados mais recentes primeiro quando existe o campo `timestamp`; atualmente os novos gastos criados pela interface não gravam esse campo.
+É possível criar, editar e apagar gastos variáveis. Cada gasto guarda valor, estabelecimento, categoria, data e quem o realizou. Os movimentos são apresentados mais recentes primeiro ordenados pelo campo `timestamp`.
 
 ### Objetivos de poupança
 
@@ -95,10 +96,9 @@ Como usam o prefixo `EXPO_PUBLIC_`, estes valores são disponibilizados ao clien
 
 ## Observações para evolução
 
-- O nome físico do componente é `ExpenceCard.js`; embora o export seja `ExpenseCard`, corrigir o nome do ficheiro numa futura reorganização melhora a consistência.
-- `Colors.js` e `DbSeeder.js` não são usados pelo fluxo em execução e parecem ser material de apoio/inicialização.
+- O componente `ExpenseCard.js` encontra-se renomeado com a ortografia correta.
+- O tema `Colors.js` centraliza o sistema de cores da aplicação.
 - Os membros da família, o perfil apresentado e o documento Firestore são fixos; suporte a contas, famílias e autenticação exigirá modelação adicional.
-- As coleções são lidas integralmente, sem filtro por mês ou paginação. À medida que os movimentos aumentarem, convém guardar uma data normalizada e consultar apenas o período necessário.
 - Não foram identificados testes automatizados nem um ficheiro README no repositório no momento desta análise.
 
 ## Ponto de entrada

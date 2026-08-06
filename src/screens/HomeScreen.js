@@ -1,15 +1,16 @@
-// ficheiro: src/screens/HomeScreen.js
-import React, {useState, useEffect} from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import ExpenseCard from '../components/ExpenceCard';
+import ExpenseCard from '../components/ExpenseCard';
 import CategoryDonutChart from '../components/CategoryDonutChart';
 import { CATEGORIAS_DE_GASTO } from '../constants/Categories';
 import { collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, setDoc, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../services/Firebase';
 import { alterarMes, chaveDoMes, inicioDoMes, rotuloDoMes } from '../utils/Month';
+import { useMonth } from '../context/MonthContext';
+import { useTheme } from '../context/ThemeContext';
 
 const obterTimestamp = (gasto) => {
     if (Number.isFinite(gasto.timestamp)) return gasto.timestamp;
@@ -24,7 +25,9 @@ const obterTimestamp = (gasto) => {
 };
 
 export default function HomeScreen() {
-    // Estado para controlar a visibilidade da janela de novo gasto
+    const { colors, isDarkMode } = useTheme();
+    const { mesSelecionado, setMesSelecionado, mesAnteriorDisponivel, setMesAnteriorDisponivel } = useMonth();
+
     const [modalVisivel, setModalVisivel] = useState(false);
     const [novoValor, setNovoValor] = useState('');
     const [novaLoja, setNovaLoja] = useState('');
@@ -35,20 +38,22 @@ export default function HomeScreen() {
     const [gastosVariaveis, setGastosVariaveis] = useState([]);
     const [rendas, setRendas] = useState({ Eu: 0, Parceira: 0 });
     const [despesasEssenciais, setDespesasEssenciais] = useState([]);
-    const [mesSelecionado, setMesSelecionado] = useState(() => inicioDoMes(new Date()));
-    const [mesAnteriorDisponivel, setMesAnteriorDisponivel] = useState(null);
+    const [limitesCategorias, setLimitesCategorias] = useState({});
+
+    // Estados para Pesquisa e Filtros
+    const [textoPesquisa, setTextoPesquisa] = useState('');
+    const [filtroPessoa, setFiltroPessoa] = useState('Todos');
 
     useEffect(() => {
-        // Escuta 1: As Configurações (Ordenados e Contas Fixas)
         const unsubConfig = onSnapshot(doc(db, 'familias', 'nossa_casa'), (docSnap) => {
             if (docSnap.exists()) {
                 const dados = docSnap.data();
                 setRendas(dados.rendas || { Eu: 0, Parceira: 0 });
                 setDespesasEssenciais(dados.despesasFixas || []);
+                setLimitesCategorias(dados.limitesCategorias || {});
             }
         });
 
-        // Escuta 2: Os Gastos do dia a dia
         const gastosDoMes = query(
             collection(db, 'gastos_variaveis'),
             where('mesReferencia', '==', chaveDoMes(mesSelecionado)),
@@ -98,7 +103,6 @@ export default function HomeScreen() {
         return () => { ativo = false; };
     }, [mesSelecionado]);
 
-    // Cálculos Automáticos
     const totalRenda = (Number(rendas.Eu) || 0) + (Number(rendas.Parceira) || 0);
     const chaveMesSelecionado = chaveDoMes(mesSelecionado);
     const eMesAtual = chaveMesSelecionado === chaveDoMes(new Date());
@@ -111,6 +115,7 @@ export default function HomeScreen() {
     const totalVariaveis = gastosVariaveis.reduce((soma, despesa) => soma + (Number(despesa.valor) || 0), 0);
     const saldoDisponivel = totalRenda - totalEssenciais - totalVariaveis;
     const podeAvancarMes = mesSelecionado < inicioDoMes(new Date());
+
     const gastosPorCategoria = Object.values(gastosVariaveis.reduce((resultado, gasto) => {
         const valor = Number(gasto.valor) || 0;
         if (valor <= 0) return resultado;
@@ -120,6 +125,15 @@ export default function HomeScreen() {
         resultado[categoria].valor += valor;
         return resultado;
     }, {})).sort((a, b) => b.valor - a.valor);
+
+    const gastosFiltrados = gastosVariaveis.filter((gasto) => {
+        const termo = textoPesquisa.trim().toLowerCase();
+        const bateTexto = !termo ||
+            gasto.loja?.toLowerCase().includes(termo) ||
+            gasto.categoria?.toLowerCase().includes(termo);
+        const batePessoa = filtroPessoa === 'Todos' || gasto.quem === filtroPessoa;
+        return bateTexto && batePessoa;
+    });
 
     const alternarPagamentoFixo = async (id, estadoAtual) => {
         try {
@@ -134,26 +148,25 @@ export default function HomeScreen() {
                 };
             });
 
-            // Envia a lista atualizada para o Firebase
             await setDoc(doc(db, 'familias', 'nossa_casa'), {
                 despesasFixas: novaLista
             }, { merge: true });
 
         } catch (error) {
-            alert("Erro ao atualizar o estado da conta.");
+            Alert.alert("Erro", "Erro ao atualizar o estado da conta.");
         }
     };
 
     const guardarGasto = async () => {
         if (!novoValor || !novaLoja || !novaCategoria) {
-            alert("Por favor, preenche todos os campos!");
+            Alert.alert("Aviso", "Por favor, preenche todos os campos!");
             return;
         }
 
         try {
             const valorFormatado = Number(novoValor.trim().replace(',', '.'));
             if (!Number.isFinite(valorFormatado) || valorFormatado <= 0) {
-                alert("Indica um valor superior a zero.");
+                Alert.alert("Aviso", "Indica um valor superior a zero.");
                 return;
             }
             const dataAtual = new Date();
@@ -167,13 +180,11 @@ export default function HomeScreen() {
                 quem: quemGastou,
                 categoria: novaCategoria,
                 mesReferencia: gastoEmEdicao?.mesReferencia || chaveDoMes(mesSelecionado),
-                timestamp: Date.now(), // <-- CARIMBO DE TEMPO PARA ORDENAÇÃO
+                timestamp: gastoEmEdicao?.timestamp || Date.now(),
             };
 
             if (gastoEmEdicao) {
-                const dadosAtualizados = { ...dadosGasto };
-                delete dadosAtualizados.timestamp;
-                await updateDoc(doc(db, 'gastos_variaveis', gastoEmEdicao.id), dadosAtualizados);
+                await updateDoc(doc(db, 'gastos_variaveis', gastoEmEdicao.id), dadosGasto);
             } else {
                 await addDoc(collection(db, 'gastos_variaveis'), dadosGasto);
             }
@@ -182,11 +193,10 @@ export default function HomeScreen() {
             setGastoEmEdicao(null); setModalVisivel(false);
 
         } catch (error) {
-            alert("Erro ao gravar. Verifica a ligação.");
+            Alert.alert("Erro", "Erro ao gravar. Verifica a ligação.");
         }
     };
 
-    // Função que abre quando clicas num cartão
     const gerirGasto = (despesa) => {
         Alert.alert(
             "Gerir Gasto",
@@ -196,23 +206,22 @@ export default function HomeScreen() {
                 {
                     text: "Editar",
                     onPress: () => {
-                        // Preenche o formulário com os dados antigos e abre a janela
                         setNovoValor(despesa.valor.toString().replace('.', ','));
                         setNovaLoja(despesa.loja);
                         setNovaCategoria(CATEGORIAS_DE_GASTO.includes(despesa.categoria) ? despesa.categoria : 'Outros');
                         setQuemGastou(despesa.quem);
-                        setGastoEmEdicao(despesa); // Avisa que estamos a editar!
+                        setGastoEmEdicao(despesa);
                         setModalVisivel(true);
                     }
                 },
                 {
                     text: "Apagar",
-                    style: "destructive", // Fica a vermelho no iPhone
+                    style: "destructive",
                     onPress: async () => {
                         try {
                             await deleteDoc(doc(db, 'gastos_variaveis', despesa.id));
                         } catch (error) {
-                            alert("Erro ao apagar o gasto.");
+                            Alert.alert("Erro", "Erro ao apagar o gasto.");
                         }
                     }
                 }
@@ -221,10 +230,10 @@ export default function HomeScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar style="light" />
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+            <StatusBar style={isDarkMode ? "light" : "light"} />
 
-            <View style={styles.header}>
+            <View style={[styles.header, { backgroundColor: isDarkMode ? colors.cardBg : colors.headerBg }]}>
                 <Text style={styles.headerTitle}>Orçamento Familiar</Text>
                 <View style={styles.seletorMes}>
                     <TouchableOpacity
@@ -256,62 +265,120 @@ export default function HomeScreen() {
             <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
                 {/* SECÇÃO DAS DESPESAS FIXAS */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Despesas Mensais</Text>
-                    {despesasEssenciais.map((item) => (
-                        <TouchableOpacity
-                            key={item.id}
-                            // Se estiver pago, aplica o estilo de opacidade
-                            style={[styles.essencialCard, item.pago && styles.essencialCardPago]}
-                            activeOpacity={0.7}
-                            onPress={() => alternarPagamentoFixo(item.id, item.pago)}
-                        >
-                            <View style={styles.essencialInfoRow}>
-                                {/* Ícone dinâmico: Visto verde se pago, Círculo vazio se não pago */}
-                                <Ionicons
-                                    name={item.pago ? "checkmark-circle" : "ellipse-outline"}
-                                    size={26}
-                                    color={item.pago ? "#10B981" : "#D1D5DB"}
-                                    style={{ marginRight: 12 }}
-                                />
-                                <View>
-                                    <Text style={[styles.lojaText, item.pago && styles.textoRiscado]}>{item.nome}</Text>
-                                    <Text style={styles.detalheText}>{item.pago ? "Pago" : "Pendente"}</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.textDark }]}>Despesas Mensais</Text>
+                    {despesasEssenciais.map((item) => {
+                        const estaPaga = despesaFoiPagaNoMes(item);
+                        return (
+                            <TouchableOpacity
+                                key={item.id}
+                                style={[
+                                    styles.essencialCard,
+                                    { backgroundColor: colors.cardBg },
+                                    estaPaga && styles.essencialCardPago
+                                ]}
+                                activeOpacity={0.7}
+                                onPress={() => alternarPagamentoFixo(item.id, estaPaga)}
+                            >
+                                <View style={styles.essencialInfoRow}>
+                                    <Ionicons
+                                        name={estaPaga ? "checkmark-circle" : "ellipse-outline"}
+                                        size={26}
+                                        color={estaPaga ? colors.success : colors.textDisabled}
+                                        style={{ marginRight: 12 }}
+                                    />
+                                    <View>
+                                        <Text style={[styles.lojaText, { color: colors.textDark }, estaPaga && styles.textoRiscado]}>{item.nome}</Text>
+                                        <Text style={[styles.detalheText, { color: colors.textLight }]}>{estaPaga ? "Pago" : "Pendente"}</Text>
+                                    </View>
                                 </View>
-                            </View>
-                            <Text style={[styles.valorFixo, item.pago && styles.textoRiscado]}>-{item.valor.toFixed(2)} €</Text>
-                        </TouchableOpacity>
-                    ))}
+                                <Text style={[styles.valorFixo, { color: colors.textMuted }, estaPaga && styles.textoRiscado]}>-{item.valor.toFixed(2)} €</Text>
+                            </TouchableOpacity>
+                        );
+                    })}
                 </View>
 
-                {/* SECÇÃO DOS GASTOS VARIÁVEIS (AGORA ORDENADOS) */}
+                {/* SECÇÃO DOS GASTOS VARIÁVEIS */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Para onde vai o dinheiro</Text>
-                    <View style={styles.graficoCard}>
-                        <CategoryDonutChart dados={gastosPorCategoria} />
+                    <Text style={[styles.sectionTitle, { color: colors.textDark }]}>Para onde vai o dinheiro</Text>
+                    <View style={[styles.graficoCard, { backgroundColor: colors.cardBg }]}>
+                        <CategoryDonutChart dados={gastosPorCategoria} limites={limitesCategorias} />
                     </View>
                 </View>
 
                 <View style={[styles.section, { paddingBottom: 100 }]}>
-                    <Text style={styles.sectionTitle}>Gastos Variáveis</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.textDark }]}>Gastos Variáveis</Text>
+
+                    {/* Barra de Pesquisa e Filtros */}
+                    <View style={styles.pesquisaContainer}>
+                        <View style={[styles.inputPesquisaBox, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+                            <Ionicons name="search-outline" size={20} color={colors.textDisabled} style={{ marginRight: 8 }} />
+                            <TextInput
+                                style={[styles.inputPesquisa, { color: colors.textDark }]}
+                                placeholder="Pesquisar loja ou categoria..."
+                                placeholderTextColor={colors.textDisabled}
+                                value={textoPesquisa}
+                                onChangeText={setTextoPesquisa}
+                            />
+                            {textoPesquisa !== '' && (
+                                <TouchableOpacity onPress={() => setTextoPesquisa('')}>
+                                    <Ionicons name="close-circle" size={18} color={colors.textDisabled} />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
+                        <View style={styles.chipsRow}>
+                            {['Todos', 'Eu', 'Parceira'].map((pessoa) => (
+                                <TouchableOpacity
+                                    key={pessoa}
+                                    style={[
+                                        styles.chipPessoa,
+                                        { backgroundColor: colors.chipBg },
+                                        filtroPessoa === pessoa && { backgroundColor: colors.primary }
+                                    ]}
+                                    onPress={() => setFiltroPessoa(pessoa)}
+                                >
+                                    <Text style={[
+                                        styles.chipTexto,
+                                        { color: colors.textMuted },
+                                        filtroPessoa === pessoa && { color: '#FFFFFF' }
+                                    ]}>
+                                        {pessoa}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+
                     {gastosVariaveis.length === 0 ? (
-                        <Text style={{ color: '#6B7280', fontStyle: 'italic', marginTop: 10 }}>
+                        <Text style={{ color: colors.textLight, fontStyle: 'italic', marginTop: 10 }}>
                             Ainda não há gastos registados este mês.
                         </Text>
+                    ) : gastosFiltrados.length === 0 ? (
+                        <View style={[styles.semResultadosBox, { backgroundColor: colors.cardBg }]}>
+                            <Ionicons name="filter-outline" size={32} color={colors.textDisabled} />
+                            <Text style={[styles.semResultadosTexto, { color: colors.textLight }]}>Nenhum gasto encontrado para os filtros aplicados.</Text>
+                            <TouchableOpacity
+                                style={[styles.btnLimparFiltros, { backgroundColor: `${colors.primaryLight}15` }]}
+                                onPress={() => { setTextoPesquisa(''); setFiltroPessoa('Todos'); }}
+                            >
+                                <Text style={[styles.txtLimparFiltros, { color: colors.primaryLight }]}>Limpar Filtros</Text>
+                            </TouchableOpacity>
+                        </View>
                     ) : (
-                        gastosVariaveis.map((item) => (
+                        gastosFiltrados.map((item) => (
                             <ExpenseCard key={item.id} expense={item} onTouch={gerirGasto} />
                         ))
                     )}
                 </View>
             </ScrollView>
 
-            {/* Botão Flutuante e Modal... (Mantém-se inalterado) */}
+            {/* Botão Flutuante */}
             <TouchableOpacity
                 disabled={!eMesAtual}
-                style={[styles.fab, !eMesAtual && styles.fabDesativado]}
+                style={[styles.fab, { backgroundColor: colors.primary }, !eMesAtual && styles.fabDesativado]}
                 activeOpacity={0.8}
                 onPress={() => {
-                setGastoEmEdicao(null); setNovaLoja(''); setNovoValor(''); setNovaCategoria(CATEGORIAS_DE_GASTO[0]); setModalVisivel(true);
+                    setGastoEmEdicao(null); setNovaLoja(''); setNovoValor(''); setNovaCategoria(CATEGORIAS_DE_GASTO[0]); setModalVisivel(true);
                 }}
             >
                 <Ionicons name="add" size={32} color="#FFFFFF" />
@@ -319,22 +386,19 @@ export default function HomeScreen() {
 
             <Modal animationType="fade" transparent={true} visible={modalVisivel} onRequestClose={() => setModalVisivel(false)}>
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
-                    <View style={[styles.modalContent, { maxHeight: '90%' }]}> {/* Limitamos a altura máxima para garantir que não sai do ecrã */}
-
-                        {/* CABEÇALHO FIXO - Fica de fora do ScrollView para estar sempre visível */}
+                    <View style={[styles.modalContent, { backgroundColor: colors.modalContent, maxHeight: '90%' }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>{gastoEmEdicao ? "Editar Gasto" : "Adicionar Gasto"}</Text>
+                            <Text style={[styles.modalTitle, { color: colors.textDark }]}>{gastoEmEdicao ? "Editar Gasto" : "Adicionar Gasto"}</Text>
                             <TouchableOpacity onPress={() => setModalVisivel(false)}>
-                                <Ionicons name="close" size={28} color="#6B7280" />
+                                <Ionicons name="close" size={28} color={colors.textLight} />
                             </TouchableOpacity>
                         </View>
 
-                        {/* FORMULÁRIO ROLÁVEL - Se o teclado subir, podes fazer scroll no formulário */}
                         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
                             <TextInput
-                                style={styles.inputGrande}
+                                style={[styles.inputGrande, { color: colors.primaryLight }]}
                                 placeholder="0,00 €"
-                                placeholderTextColor="#9CA3AF"
+                                placeholderTextColor={colors.textDisabled}
                                 keyboardType="decimal-pad"
                                 value={novoValor}
                                 onChangeText={setNovoValor}
@@ -342,47 +406,46 @@ export default function HomeScreen() {
                             />
 
                             <TextInput
-                                style={styles.inputNormal}
+                                style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark }]}
                                 placeholder="Onde foi a compra?"
-                                placeholderTextColor="#9CA3AF"
+                                placeholderTextColor={colors.textDisabled}
                                 value={novaLoja}
                                 onChangeText={setNovaLoja}
                             />
 
-                            <Text style={styles.labelPessoa}>Categoria</Text>
-                            <View style={styles.pickerContainer}>
+                            <Text style={[styles.labelPessoa, { color: colors.textMuted }]}>Categoria</Text>
+                            <View style={[styles.pickerContainer, { backgroundColor: colors.inputBg }]}>
                                 <Picker
                                     selectedValue={novaCategoria}
                                     onValueChange={setNovaCategoria}
-                                    style={Platform.OS === 'android' ? { color: '#1F2937' } : {}}
-                                    itemStyle={Platform.OS === 'ios' ? { height: 120, fontSize: 16, color: '#1F2937' } : {}}
+                                    style={{ color: colors.textDark }}
+                                    itemStyle={Platform.OS === 'ios' ? { height: 120, fontSize: 16, color: colors.textDark } : {}}
                                 >
                                     {CATEGORIAS_DE_GASTO.map((categoria) => (
                                         <Picker.Item
                                             key={categoria}
                                             label={categoria}
                                             value={categoria}
-                                            color={Platform.OS === 'android' ? '#1F2937' : undefined}
+                                            color={colors.textDark}
                                         />
                                     ))}
                                 </Picker>
                             </View>
 
-                            <Text style={styles.labelPessoa}>Quem gastou?</Text>
+                            <Text style={[styles.labelPessoa, { color: colors.textMuted }]}>Quem gastou?</Text>
                             <View style={styles.quemContainer}>
-                                <TouchableOpacity style={[styles.btnQuem, quemGastou === 'Eu' && styles.btnQuemAtivo]} onPress={() => setQuemGastou('Eu')}>
-                                    <Text style={[styles.btnQuemTexto, quemGastou === 'Eu' && styles.btnQuemTextoAtivo]}>Eu</Text>
+                                <TouchableOpacity style={[styles.btnQuem, { backgroundColor: colors.inputBg }, quemGastou === 'Eu' && { backgroundColor: `${colors.primaryLight}30`, borderColor: colors.primaryLight }]} onPress={() => setQuemGastou('Eu')}>
+                                    <Text style={[styles.btnQuemTexto, { color: colors.textLight }, quemGastou === 'Eu' && { color: colors.primaryLight, fontWeight: 'bold' }]}>Eu</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity style={[styles.btnQuem, quemGastou === 'Parceira' && styles.btnQuemAtivo]} onPress={() => setQuemGastou('Parceira')}>
-                                    <Text style={[styles.btnQuemTexto, quemGastou === 'Parceira' && styles.btnQuemTextoAtivo]}>Parceira</Text>
+                                <TouchableOpacity style={[styles.btnQuem, { backgroundColor: colors.inputBg }, quemGastou === 'Parceira' && { backgroundColor: `${colors.primaryLight}30`, borderColor: colors.primaryLight }]} onPress={() => setQuemGastou('Parceira')}>
+                                    <Text style={[styles.btnQuemTexto, { color: colors.textLight }, quemGastou === 'Parceira' && { color: colors.primaryLight, fontWeight: 'bold' }]}>Parceira</Text>
                                 </TouchableOpacity>
                             </View>
 
-                            <TouchableOpacity style={styles.btnGuardar} onPress={guardarGasto}>
+                            <TouchableOpacity style={[styles.btnGuardar, { backgroundColor: colors.success }]} onPress={guardarGasto}>
                                 <Text style={styles.btnGuardarTexto}>Guardar</Text>
                             </TouchableOpacity>
                         </ScrollView>
-
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
@@ -391,8 +454,8 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F5F7FA' },
-    header: { backgroundColor: '#1E3A8A', padding: 30, paddingTop: 30, alignItems: 'center' },
+    container: { flex: 1 },
+    header: { padding: 30, paddingTop: 30, alignItems: 'center' },
     headerTitle: { color: '#93C5FD', fontSize: 14, fontWeight: '600', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 },
     seletorMes: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
     botaoMes: { padding: 6 },
@@ -404,33 +467,41 @@ const styles = StyleSheet.create({
     resumoText: { color: '#93C5FD', fontSize: 12, fontWeight: 'bold' },
     scrollContainer: { flex: 1 },
     section: { padding: 20, paddingBottom: 0 },
-    sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937', marginBottom: 15 },
-    graficoCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
+    sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
+    graficoCard: { borderRadius: 16, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
 
-    // Estilos das Despesas Fixas
-    essencialCard: { backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 5, elevation: 1 },
+    essencialCard: { padding: 16, borderRadius: 16, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 5, elevation: 1 },
     essencialInfoRow: { flexDirection: 'row', alignItems: 'center' },
-    essencialCardPago: { opacity: 0.6, backgroundColor: '#F3F4F6' }, // Estilo quando está pago
-    textoRiscado: { textDecorationLine: 'line-through', color: '#9CA3AF' }, // Risca o texto
-    lojaText: { fontSize: 16, fontWeight: '700', color: '#111827' },
-    detalheText: { fontSize: 12, color: '#6B7280', marginTop: 4 },
-    valorFixo: { fontSize: 16, fontWeight: 'bold', color: '#374151' },
+    essencialCardPago: { opacity: 0.6 },
+    textoRiscado: { textDecorationLine: 'line-through', opacity: 0.7 },
+    lojaText: { fontSize: 16, fontWeight: '700' },
+    detalheText: { fontSize: 12, marginTop: 4 },
+    valorFixo: { fontSize: 16, fontWeight: 'bold' },
 
-    fab: { position: 'absolute', bottom: 20, right: 20, backgroundColor: '#1E3A8A', width: 65, height: 65, borderRadius: 35, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 8 },
+    fab: { position: 'absolute', bottom: 20, right: 20, width: 65, height: 65, borderRadius: 35, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 8 },
     fabDesativado: { opacity: 0.4 },
     modalFundo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
-    modalContent: { backgroundColor: '#FFFFFF', borderRadius: 25, padding: 25, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 10 },
+    modalContent: { borderRadius: 25, padding: 25, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 10 },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-    modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937' },
-    inputGrande: { fontSize: 40, fontWeight: 'bold', color: '#1E3A8A', textAlign: 'center', marginBottom: 20, padding: 10 },
-    inputNormal: { backgroundColor: '#F3F4F6', padding: 15, borderRadius: 12, fontSize: 16, marginBottom: 15, color: '#1F2937' },
-    pickerContainer: { backgroundColor: '#F3F4F6', borderRadius: 12, marginBottom: 15, overflow: 'hidden', paddingHorizontal: Platform.OS === 'android' ? 5 : 0 },
-    labelPessoa: { fontSize: 14, fontWeight: 'bold', color: '#4B5563', marginBottom: 10, marginTop: 5 },
+    modalTitle: { fontSize: 18, fontWeight: 'bold' },
+    inputGrande: { fontSize: 40, fontWeight: 'bold', textAlign: 'center', marginBottom: 20, padding: 10 },
+    inputNormal: { padding: 15, borderRadius: 12, fontSize: 16, marginBottom: 15 },
+    pickerContainer: { borderRadius: 12, marginBottom: 15, overflow: 'hidden', paddingHorizontal: Platform.OS === 'android' ? 5 : 0 },
+    labelPessoa: { fontSize: 14, fontWeight: 'bold', marginBottom: 10, marginTop: 5 },
     quemContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
-    btnQuem: { flex: 1, backgroundColor: '#F3F4F6', padding: 15, borderRadius: 12, alignItems: 'center', marginHorizontal: 5, borderWidth: 1, borderColor: 'transparent' },
-    btnQuemAtivo: { backgroundColor: '#E0E7FF', borderColor: '#1E3A8A' },
-    btnQuemTexto: { fontSize: 16, fontWeight: '600', color: '#6B7280' },
-    btnQuemTextoAtivo: { color: '#1E3A8A', fontWeight: 'bold' },
-    btnGuardar: { backgroundColor: '#10B981', padding: 16, borderRadius: 12, alignItems: 'center' },
-    btnGuardarTexto: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' }
+    btnQuem: { flex: 1, padding: 15, borderRadius: 12, alignItems: 'center', marginHorizontal: 5, borderWidth: 1, borderColor: 'transparent' },
+    btnQuemTexto: { fontSize: 16, fontWeight: '600' },
+    btnGuardar: { padding: 16, borderRadius: 12, alignItems: 'center' },
+    btnGuardarTexto: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
+
+    pesquisaContainer: { marginBottom: 15, gap: 10 },
+    inputPesquisaBox: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, paddingHorizontal: 12, height: 44, borderWidth: 1 },
+    inputPesquisa: { flex: 1, fontSize: 14 },
+    chipsRow: { flexDirection: 'row', gap: 8 },
+    chipPessoa: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 20 },
+    chipTexto: { fontSize: 13, fontWeight: '600' },
+    semResultadosBox: { alignItems: 'center', padding: 25, borderRadius: 16, marginTop: 10, gap: 8 },
+    semResultadosTexto: { fontSize: 14, textAlign: 'center' },
+    btnLimparFiltros: { marginTop: 5, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 10 },
+    txtLimparFiltros: { fontWeight: 'bold', fontSize: 13 }
 });
