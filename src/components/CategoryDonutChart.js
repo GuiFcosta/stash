@@ -1,17 +1,17 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { Colors } from '../theme/Colors';
-
-const CORES = ['#2563EB', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#64748B'];
+import { useTheme } from '../context/ThemeContext';
+import { CATEGORY_COLORS } from '../theme/Colors';
 const RAIO = 50;
 const CIRCUNFERENCIA = 2 * Math.PI * RAIO;
 
 export default function CategoryDonutChart({ dados, limites = {} }) {
+    const { colors } = useTheme();
     const total = dados.reduce((soma, item) => soma + item.valor, 0);
 
     if (total <= 0) {
-        return <Text style={styles.semDados}>Ainda não existem gastos para analisar neste mês.</Text>;
+        return <Text style={[styles.semDados, { color: colors.textLight }]}>Ainda não existem gastos para analisar neste mês.</Text>;
     }
 
     let percentagemAcumulada = 0;
@@ -20,7 +20,7 @@ export default function CategoryDonutChart({ dados, limites = {} }) {
         <View>
             <View style={styles.graficoContainer}>
                 <Svg width={150} height={150} viewBox="0 0 120 120" accessibilityLabel="Distribuição de gastos por categoria">
-                    <Circle cx="60" cy="60" r={RAIO} stroke="#E5E7EB" strokeWidth="18" fill="none" />
+                    <Circle cx="60" cy="60" r={RAIO} stroke={colors.trackBg} strokeWidth="18" fill="none" />
                     {dados.map((item, index) => {
                         const percentagem = item.valor / total;
                         const comprimento = percentagem * CIRCUNFERENCIA;
@@ -33,7 +33,7 @@ export default function CategoryDonutChart({ dados, limites = {} }) {
                                 cx="60"
                                 cy="60"
                                 r={RAIO}
-                                stroke={CORES[index % CORES.length]}
+                                stroke={CATEGORY_COLORS[index % CATEGORY_COLORS.length]}
                                 strokeWidth="18"
                                 strokeDasharray={`${comprimento} ${CIRCUNFERENCIA}`}
                                 strokeDashoffset={deslocamento}
@@ -46,8 +46,8 @@ export default function CategoryDonutChart({ dados, limites = {} }) {
                     })}
                 </Svg>
                 <View style={styles.centroGrafico} pointerEvents="none">
-                    <Text style={styles.total}>{total.toFixed(0)}€</Text>
-                    <Text style={styles.totalLabel}>gasto</Text>
+                    <Text style={[styles.total, { color: colors.textDark }]}>{total.toFixed(0)}€</Text>
+                    <Text style={[styles.totalLabel, { color: colors.textLight }]}>gasto</Text>
                 </View>
             </View>
 
@@ -58,21 +58,21 @@ export default function CategoryDonutChart({ dados, limites = {} }) {
                     const temLimite = limite > 0;
                     const pctLimite = temLimite ? Math.min((item.valor / limite) * 100, 100) : 0;
                     const excedido = temLimite && item.valor > limite;
-                    const corBarra = pctLimite >= 100 ? Colors.danger : (pctLimite >= 80 ? Colors.warning : Colors.success);
+                    const corBarra = pctLimite >= 100 ? colors.danger : (pctLimite >= 80 ? colors.warning : colors.success);
 
                     return (
                         <View key={item.categoria} style={styles.blocoCategoria}>
                             <View style={styles.linhaLegenda}>
-                                <View style={[styles.corLegenda, { backgroundColor: CORES[index % CORES.length] }]} />
-                                <Text style={styles.nomeCategoria}>{item.categoria}</Text>
-                                <Text style={[styles.valorCategoria, excedido && styles.valorExcedido]}>
+                                <View style={[styles.corLegenda, { backgroundColor: CATEGORY_COLORS[index % CATEGORY_COLORS.length] }]} />
+                                <Text style={[styles.nomeCategoria, { color: colors.textMuted }]}>{item.categoria}</Text>
+                                <Text style={[styles.valorCategoria, { color: colors.textMuted }, excedido && { color: colors.danger, fontWeight: 'bold' }]}>
                                     {item.valor.toFixed(2)}€
                                     {temLimite ? ` / ${limite.toFixed(0)}€` : ` (${percentagemTotal.toFixed(0)}%)`}
                                 </Text>
                             </View>
 
                             {temLimite && (
-                                <View style={styles.barraFundo}>
+                                <View style={[styles.barraFundo, { backgroundColor: colors.trackBg }]}>
                                     <View style={[styles.barraProgresso, { width: `${pctLimite}%`, backgroundColor: corBarra }]} />
                                 </View>
                             )}
@@ -87,16 +87,15 @@ export default function CategoryDonutChart({ dados, limites = {} }) {
 const styles = StyleSheet.create({
     graficoContainer: { width: 150, height: 150, alignSelf: 'center', justifyContent: 'center', alignItems: 'center', marginBottom: 18 },
     centroGrafico: { position: 'absolute', alignItems: 'center' },
-    total: { fontSize: 20, fontWeight: '700', color: Colors.textDark },
-    totalLabel: { fontSize: 12, color: Colors.textLight },
+    total: { fontSize: 20, fontWeight: '700' },
+    totalLabel: { fontSize: 12 },
     legenda: { gap: 12 },
     blocoCategoria: { gap: 4 },
     linhaLegenda: { flexDirection: 'row', alignItems: 'center' },
     corLegenda: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
-    nomeCategoria: { flex: 1, fontSize: 14, color: Colors.textMuted, fontWeight: '500' },
-    valorCategoria: { fontSize: 13, fontWeight: '600', color: Colors.textMuted },
-    valorExcedido: { color: Colors.danger, fontWeight: 'bold' },
-    barraFundo: { height: 6, backgroundColor: '#E5E7EB', borderRadius: 3, overflow: 'hidden', marginLeft: 18 },
+    nomeCategoria: { flex: 1, fontSize: 14, fontWeight: '500' },
+    valorCategoria: { fontSize: 13, fontWeight: '600' },
+    barraFundo: { height: 6, borderRadius: 3, overflow: 'hidden', marginLeft: 18 },
     barraProgresso: { height: '100%', borderRadius: 3 },
-    semDados: { color: Colors.textLight, fontStyle: 'italic', textAlign: 'center', paddingVertical: 20 },
+    semDados: { fontStyle: 'italic', textAlign: 'center', paddingVertical: 20 },
 });

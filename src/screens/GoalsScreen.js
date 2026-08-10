@@ -5,6 +5,7 @@ import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc } from 'fireb
 import { db } from '../services/Firebase';
 import { chaveDoMes } from '../utils/Month';
 import { useTheme } from '../context/ThemeContext';
+import { hexToRgba } from '../utils/colors';
 
 export default function GoalsScreen() {
     const { colors } = useTheme();
@@ -191,7 +192,7 @@ export default function GoalsScreen() {
 
             {/* MODAL 1: CRIAR NOVA META */}
             <Modal animationType="fade" transparent={true} visible={modalCriarVisivel} onRequestClose={() => setModalCriarVisivel(false)}>
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalFundo, { backgroundColor: colors.modalFundo }]}>
                     <View style={[styles.modalContent, { backgroundColor: colors.modalContent }]}>
                         <View style={styles.modalHeader}>
                             <Text style={[styles.modalTitle, { color: colors.textDark }]}>Novo Objetivo</Text>
@@ -210,7 +211,7 @@ export default function GoalsScreen() {
 
             {/* MODAL 2: EDITAR META EXISTENTE */}
             <Modal animationType="fade" transparent={true} visible={modalEditarVisivel} onRequestClose={() => setModalEditarVisivel(false)}>
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalFundo, { backgroundColor: colors.modalFundo }]}>
                     <View style={[styles.modalContent, { backgroundColor: colors.modalContent }]}>
                         <View style={styles.modalHeader}>
                             <Text style={[styles.modalTitle, { color: colors.textDark }]}>Editar Objetivo</Text>
@@ -226,7 +227,7 @@ export default function GoalsScreen() {
 
             {/* MODAL 3: DEPOSITAR OU RETIRAR DINHEIRO */}
             <Modal animationType="fade" transparent={true} visible={modalMovimentoVisivel} onRequestClose={() => setModalMovimentoVisivel(false)}>
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalFundo, { backgroundColor: colors.modalFundo }]}>
                     <View style={[styles.modalContent, { backgroundColor: colors.modalContent }]}>
                         <View style={styles.modalHeader}>
                             <Text style={[styles.modalTitle, { color: colors.textDark }]}>Movimentar Dinheiro</Text>
@@ -240,8 +241,8 @@ export default function GoalsScreen() {
                             <TouchableOpacity style={[styles.btnGuardar, { backgroundColor: colors.primaryLight, flex: 1, marginRight: 10 }]} onPress={() => realizarMovimento('depositar')}>
                                 <Text style={styles.btnGuardarTexto}>Depositar</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={[styles.btnRetirar, { flex: 1 }]} onPress={() => realizarMovimento('retirar')}>
-                                <Text style={styles.btnRetirarTexto}>Retirar</Text>
+                            <TouchableOpacity style={[styles.btnRetirar, { flex: 1, backgroundColor: colors.dangerSoft }]} onPress={() => realizarMovimento('retirar')}>
+                                <Text style={[styles.btnRetirarTexto, { color: colors.danger }]}>Retirar</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -254,25 +255,25 @@ export default function GoalsScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { padding: 30, paddingTop: 60, alignItems: 'center' },
-    headerTitle: { fontSize: 22, fontWeight: 'bold' },
+    headerTitle: { fontSize: 22, fontFamily: 'Inter_700Bold' },
     content: { padding: 20 },
     card: { padding: 20, borderRadius: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-    titulo: { fontSize: 18, fontWeight: 'bold' },
+    titulo: { fontSize: 18, fontFamily: 'Inter_700Bold' },
     valores: { fontSize: 14 },
-    guardado: { fontWeight: 'bold' },
+    guardado: { fontFamily: 'Inter_700Bold' },
     barraFundo: { height: 12, borderRadius: 6, overflow: 'hidden' },
     barraProgresso: { height: '100%', borderRadius: 6 },
     fab: { position: 'absolute', bottom: 20, right: 20, width: 65, height: 65, borderRadius: 35, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 8 },
-    modalFundo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+    modalFundo: { flex: 1, justifyContent: 'center', padding: 20 },
     modalContent: { borderRadius: 25, padding: 25, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 10 },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-    modalTitle: { fontSize: 18, fontWeight: 'bold' },
+    modalTitle: { fontSize: 18, fontFamily: 'Inter_700Bold' },
     inputNormal: { padding: 15, borderRadius: 12, fontSize: 16, marginBottom: 15 },
-    inputGrande: { fontSize: 40, fontWeight: 'bold', textAlign: 'center', marginBottom: 20, padding: 10 },
+    inputGrande: { fontSize: 40, fontFamily: 'Inter_700Bold', textAlign: 'center', marginBottom: 20, padding: 10 },
     rowInputs: { flexDirection: 'row', justifyContent: 'space-between' },
     btnGuardar: { padding: 16, borderRadius: 12, alignItems: 'center' },
-    btnGuardarTexto: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
-    btnRetirar: { backgroundColor: '#FEE2E2', padding: 16, borderRadius: 12, alignItems: 'center' },
-    btnRetirarTexto: { color: '#EF4444', fontSize: 16, fontWeight: 'bold' }
+    btnGuardarTexto: { color: '#FFFFFF', fontSize: 16, fontFamily: 'Inter_700Bold' },
+    btnRetirar: { padding: 16, borderRadius: 12, alignItems: 'center' },
+    btnRetirarTexto: { fontSize: 16, fontFamily: 'Inter_700Bold' }
 });

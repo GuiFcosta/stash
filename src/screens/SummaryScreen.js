@@ -77,7 +77,7 @@ export default function SummaryScreen() {
                         Rendimento Total: {rendaTotalCasal.toFixed(2)} €
                     </Text>
 
-                    <View style={styles.barraFundo}>
+                    <View style={[styles.barraFundo, { backgroundColor: colors.trackBg }]}>
                         <View style={[styles.barraProgresso, { width: `${pctGastaCasal}%`, backgroundColor: pctGastaCasal > 90 ? colors.danger : colors.primaryLight }]} />
                     </View>
                     <Text style={[styles.pctCasalTexto, { color: colors.textLight }]}>
@@ -165,29 +165,29 @@ export default function SummaryScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { padding: 30, paddingTop: 60, alignItems: 'center' },
-    headerTitle: { fontSize: 22, fontWeight: 'bold' },
+    headerTitle: { fontSize: 22, fontFamily: 'Inter_700Bold' },
     content: { padding: 20 },
 
     // Resumo Casal
     resumoCasalCard: { padding: 20, borderRadius: 16, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
     resumoCasalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     rowTitle: { flexDirection: 'row', alignItems: 'center' },
-    resumoCasalTitulo: { fontSize: 18, fontWeight: 'bold' },
-    resumoCasalValor: { fontSize: 20, fontWeight: 'bold' },
+    resumoCasalTitulo: { fontSize: 18, fontFamily: 'Inter_700Bold' },
+    resumoCasalValor: { fontSize: 20, fontFamily: 'Inter_700Bold' },
     resumoCasalSub: { fontSize: 13, marginTop: 4, marginBottom: 12 },
-    barraFundo: { height: 8, backgroundColor: '#E5E7EB', borderRadius: 4, overflow: 'hidden' },
+    barraFundo: { height: 8, borderRadius: 4, overflow: 'hidden' },
     barraProgresso: { height: '100%', borderRadius: 4 },
     pctCasalTexto: { fontSize: 12, marginTop: 6, fontStyle: 'italic' },
 
     // Cartões Individuais
     cardContainer: { marginBottom: 16 },
     pessoaCard: { padding: 20, borderRadius: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
-    nome: { fontSize: 18, fontWeight: '600' },
+    nome: { fontSize: 18, fontFamily: 'Inter_600SemiBold' },
     rendaText: { fontSize: 13, marginTop: 4, fontWeight: '600' },
-    valor: { fontSize: 20, fontWeight: 'bold' },
+    valor: { fontSize: 20, fontFamily: 'Inter_700Bold' },
     percentagemText: { fontSize: 12, marginTop: 4 },
     detalhesContainer: { padding: 16, marginTop: 8, borderRadius: 16 },
-    detalhesTitle: { fontSize: 15, fontWeight: 'bold', marginBottom: 10, marginTop: 5 },
+    detalhesTitle: { fontSize: 15, fontFamily: 'Inter_700Bold', marginBottom: 10, marginTop: 5 },
     detalhesSubTitle: { fontSize: 13, fontWeight: '600', marginBottom: 8 },
     seccaoCategoriasPessoa: { marginBottom: 15 },
     chipsCategoriasRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

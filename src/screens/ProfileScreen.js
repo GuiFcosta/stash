@@ -5,6 +5,7 @@ import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from "../services/Firebase";
 import { CATEGORIAS_DE_GASTO } from '../constants/Categories';
 import { useTheme } from '../context/ThemeContext';
+import { hexToRgba } from '../utils/colors';
 
 export default function ProfileScreen() {
     const { colors, isDarkMode, toggleTheme } = useTheme();
@@ -151,7 +152,7 @@ export default function ProfileScreen() {
 
     const MenuItem = ({ icone, titulo, subtitulo, corIcone = colors.textMuted, acao, rightElement }) => (
         <TouchableOpacity style={[styles.menuItem, { borderBottomColor: colors.border }]} activeOpacity={acao ? 0.7 : 1} onPress={acao}>
-            <View style={[styles.iconContainer, { backgroundColor: `${corIcone}18` }]}>
+            <View style={[styles.iconContainer, { backgroundColor: hexToRgba(corIcone, 0.09) }]}>
                 <Ionicons name={icone} size={22} color={corIcone} />
             </View>
             <View style={styles.menuTextContainer}>
@@ -216,8 +217,8 @@ export default function ProfileScreen() {
                             <Switch
                                 value={isDarkMode}
                                 onValueChange={toggleTheme}
-                                trackColor={{ false: '#D1D5DB', true: colors.primaryLight }}
-                                thumbColor={isDarkMode ? colors.primary : '#FFFFFF'}
+                                trackColor={{ false: colors.trackBg, true: colors.primaryLight }}
+                                thumbColor={isDarkMode ? colors.primary : colors.headerText}
                             />
                         }
                     />
@@ -226,7 +227,7 @@ export default function ProfileScreen() {
 
             {/* 1. JANELA DE EDIÇÃO DE RENDIMENTOS */}
             <Modal animationType="fade" transparent={true} visible={modalRendaVisivel} onRequestClose={() => setModalRendaVisivel(false)}>
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalFundo, { backgroundColor: colors.modalFundo }]}>
                     <View style={[styles.modalContent, { backgroundColor: colors.modalContent }]}>
                         <View style={styles.modalHeader}>
                             <Text style={[styles.modalTitle, { color: colors.textDark }]}>Rendimentos Mensais</Text>
@@ -250,7 +251,7 @@ export default function ProfileScreen() {
 
             {/* 2. JANELA DE EDIÇÃO DE DESPESAS FIXAS */}
             <Modal animationType="fade" transparent={true} visible={modalFixasVisivel} onRequestClose={() => setModalFixasVisivel(false)}>
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalFundo, { backgroundColor: colors.modalFundo }]}>
                     <View style={[styles.modalContent, { backgroundColor: colors.modalContent, maxHeight: '80%' }]}>
                         <View style={styles.modalHeader}>
                             <Text style={[styles.modalTitle, { color: colors.textDark }]}>Despesas Fixas</Text>
@@ -283,7 +284,7 @@ export default function ProfileScreen() {
                                 </View>
                             ))}
 
-                            <TouchableOpacity style={[styles.btnAdicionarNova, { borderColor: colors.primaryLight, backgroundColor: `${colors.primaryLight}15` }]} onPress={adicionarItemFixa}>
+                            <TouchableOpacity style={[styles.btnAdicionarNova, { borderColor: colors.primaryLight, backgroundColor: hexToRgba(colors.primaryLight, 0.08) }]} onPress={adicionarItemFixa}>
                                 <Ionicons name="add-circle-outline" size={20} color={colors.primaryLight} style={{ marginRight: 5 }} />
                                 <Text style={[styles.txtAdicionarNova, { color: colors.primaryLight }]}>Adicionar Conta</Text>
                             </TouchableOpacity>
@@ -298,7 +299,7 @@ export default function ProfileScreen() {
 
             {/* 3. JANELA DE EDIÇÃO DE LIMITES POR CATEGORIA */}
             <Modal animationType="fade" transparent={true} visible={modalLimitesVisivel} onRequestClose={() => setModalLimitesVisivel(false)}>
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalFundo, { backgroundColor: colors.modalFundo }]}>
                     <View style={[styles.modalContent, { backgroundColor: colors.modalContent, maxHeight: '85%' }]}>
                         <View style={styles.modalHeader}>
                             <Text style={[styles.modalTitle, { color: colors.textDark }]}>Limites por Categoria (€)</Text>
@@ -341,31 +342,31 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { padding: 30, paddingTop: 60, alignItems: 'center' },
-    headerTitle: { fontSize: 22, fontWeight: 'bold' },
+    headerTitle: { fontSize: 22, fontFamily: 'Inter_700Bold' },
     content: { padding: 20 },
     profileCard: { padding: 20, borderRadius: 16, flexDirection: 'row', alignItems: 'center', marginBottom: 25, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
     avatar: { width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
     avatarText: { color: '#FFFFFF', fontSize: 20, fontWeight: 'bold' },
     profileInfo: { flex: 1 },
-    profileName: { fontSize: 18, fontWeight: 'bold' },
+    profileName: { fontSize: 18, fontFamily: 'Inter_700Bold' },
     profileEmail: { fontSize: 14, marginTop: 2 },
-    sectionTitle: { fontSize: 14, fontWeight: '700', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1, marginLeft: 5 },
+    sectionTitle: { fontSize: 14, fontFamily: 'Inter_700Bold', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1, marginLeft: 5 },
     menuGroup: { borderRadius: 16, marginBottom: 25, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 5, elevation: 1 },
     menuItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
     iconContainer: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
     menuTextContainer: { flex: 1 },
-    menuTitle: { fontSize: 16, fontWeight: '600' },
+    menuTitle: { fontSize: 16, fontFamily: 'Inter_600SemiBold' },
     menuSubtitle: { fontSize: 13, marginTop: 2 },
 
     // Modais
-    modalFundo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+    modalFundo: { flex: 1, justifyContent: 'center', padding: 20 },
     modalContent: { borderRadius: 25, padding: 25, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 10 },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-    modalTitle: { fontSize: 18, fontWeight: 'bold' },
+    modalTitle: { fontSize: 18, fontFamily: 'Inter_700Bold' },
     inputLabel: { fontSize: 14, fontWeight: 'bold', marginBottom: 8 },
     inputNormal: { padding: 15, borderRadius: 12, fontSize: 16, marginBottom: 20 },
     btnGuardar: { padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 10 },
-    btnGuardarTexto: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
+    btnGuardarTexto: { color: '#FFFFFF', fontSize: 18, fontFamily: 'Inter_700Bold' },
 
     // Estilos da lista de contas
     linhaDespesa: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },

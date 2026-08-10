@@ -11,6 +11,7 @@ import { db } from '../services/Firebase';
 import { alterarMes, chaveDoMes, inicioDoMes, rotuloDoMes } from '../utils/Month';
 import { useMonth } from '../context/MonthContext';
 import { useTheme } from '../context/ThemeContext';
+import { hexToRgba } from '../utils/colors';
 
 const obterTimestamp = (gasto) => {
     if (Number.isFinite(gasto.timestamp)) return gasto.timestamp;
@@ -231,10 +232,10 @@ export default function HomeScreen() {
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-            <StatusBar style={isDarkMode ? "light" : "light"} />
+            <StatusBar style={isDarkMode ? "light" : "dark"} />
 
             <View style={[styles.header, { backgroundColor: isDarkMode ? colors.cardBg : colors.headerBg }]}>
-                <Text style={styles.headerTitle}>Orçamento Familiar</Text>
+                <Text style={[styles.headerTitle, { color: colors.headerSubtext }]}>Orçamento Familiar</Text>
                 <View style={styles.seletorMes}>
                     <TouchableOpacity
                         accessibilityLabel="Ver mês anterior"
@@ -242,23 +243,23 @@ export default function HomeScreen() {
                         onPress={() => setMesSelecionado(mesAnteriorDisponivel)}
                         style={[styles.botaoMes, !mesAnteriorDisponivel && styles.botaoMesDesativado]}
                     >
-                        <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+                        <Ionicons name="chevron-back" size={20} color={colors.headerText} />
                     </TouchableOpacity>
-                    <Text style={styles.rotuloMes}>{rotuloDoMes(mesSelecionado)}</Text>
+                    <Text style={[styles.rotuloMes, { color: colors.headerText }]}>{rotuloDoMes(mesSelecionado)}</Text>
                     <TouchableOpacity
                         accessibilityLabel="Ver mês seguinte"
                         disabled={!podeAvancarMes}
                         onPress={() => setMesSelecionado((mes) => alterarMes(mes, 1))}
                         style={[styles.botaoMes, !podeAvancarMes && styles.botaoMesDesativado]}
                     >
-                        <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
+                        <Ionicons name="chevron-forward" size={20} color={colors.headerText} />
                     </TouchableOpacity>
                 </View>
-                <Text style={styles.saldoText}>{saldoDisponivel.toFixed(2)} €</Text>
-                <Text style={styles.saldoLabel}>Disponível este Mês</Text>
+                <Text style={[styles.saldoText, { color: saldoDisponivel < 0 ? colors.danger : colors.headerText }]}>{saldoDisponivel.toFixed(2)} €</Text>
+                <Text style={[styles.saldoLabel, { color: colors.headerAccent }]}>Disponível este Mês</Text>
                 <View style={styles.resumoRow}>
-                    <Text style={styles.resumoText}>Ganhos: +{totalRenda.toFixed(0)}€</Text>
-                    <Text style={styles.resumoText}>Fixo: -{totalEssenciais.toFixed(0)}€</Text>
+                    <Text style={[styles.resumoText, { color: colors.headerSubtext }]}>Ganhos: +{totalRenda.toFixed(0)}€</Text>
+                    <Text style={[styles.resumoText, { color: colors.headerSubtext }]}>Fixo: -{totalEssenciais.toFixed(0)}€</Text>
                 </View>
             </View>
 
@@ -340,7 +341,7 @@ export default function HomeScreen() {
                                     <Text style={[
                                         styles.chipTexto,
                                         { color: colors.textMuted },
-                                        filtroPessoa === pessoa && { color: '#FFFFFF' }
+                                        filtroPessoa === pessoa && { color: colors.headerText }
                                     ]}>
                                         {pessoa}
                                     </Text>
@@ -358,7 +359,7 @@ export default function HomeScreen() {
                             <Ionicons name="filter-outline" size={32} color={colors.textDisabled} />
                             <Text style={[styles.semResultadosTexto, { color: colors.textLight }]}>Nenhum gasto encontrado para os filtros aplicados.</Text>
                             <TouchableOpacity
-                                style={[styles.btnLimparFiltros, { backgroundColor: `${colors.primaryLight}15` }]}
+                                style={[styles.btnLimparFiltros, { backgroundColor: hexToRgba(colors.primaryLight, 0.08) }]}
                                 onPress={() => { setTextoPesquisa(''); setFiltroPessoa('Todos'); }}
                             >
                                 <Text style={[styles.txtLimparFiltros, { color: colors.primaryLight }]}>Limpar Filtros</Text>
@@ -385,7 +386,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
 
             <Modal animationType="fade" transparent={true} visible={modalVisivel} onRequestClose={() => setModalVisivel(false)}>
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalFundo, { backgroundColor: colors.modalFundo }]}>
                     <View style={[styles.modalContent, { backgroundColor: colors.modalContent, maxHeight: '90%' }]}>
                         <View style={styles.modalHeader}>
                             <Text style={[styles.modalTitle, { color: colors.textDark }]}>{gastoEmEdicao ? "Editar Gasto" : "Adicionar Gasto"}</Text>
@@ -434,10 +435,10 @@ export default function HomeScreen() {
 
                             <Text style={[styles.labelPessoa, { color: colors.textMuted }]}>Quem gastou?</Text>
                             <View style={styles.quemContainer}>
-                                <TouchableOpacity style={[styles.btnQuem, { backgroundColor: colors.inputBg }, quemGastou === 'Eu' && { backgroundColor: `${colors.primaryLight}30`, borderColor: colors.primaryLight }]} onPress={() => setQuemGastou('Eu')}>
+                                <TouchableOpacity style={[styles.btnQuem, { backgroundColor: colors.inputBg }, quemGastou === 'Eu' && { backgroundColor: hexToRgba(colors.primaryLight, 0.19), borderColor: colors.primaryLight }]} onPress={() => setQuemGastou('Eu')}>
                                     <Text style={[styles.btnQuemTexto, { color: colors.textLight }, quemGastou === 'Eu' && { color: colors.primaryLight, fontWeight: 'bold' }]}>Eu</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity style={[styles.btnQuem, { backgroundColor: colors.inputBg }, quemGastou === 'Parceira' && { backgroundColor: `${colors.primaryLight}30`, borderColor: colors.primaryLight }]} onPress={() => setQuemGastou('Parceira')}>
+                                <TouchableOpacity style={[styles.btnQuem, { backgroundColor: colors.inputBg }, quemGastou === 'Parceira' && { backgroundColor: hexToRgba(colors.primaryLight, 0.19), borderColor: colors.primaryLight }]} onPress={() => setQuemGastou('Parceira')}>
                                     <Text style={[styles.btnQuemTexto, { color: colors.textLight }, quemGastou === 'Parceira' && { color: colors.primaryLight, fontWeight: 'bold' }]}>Parceira</Text>
                                 </TouchableOpacity>
                             </View>
@@ -456,35 +457,35 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { padding: 30, paddingTop: 30, alignItems: 'center' },
-    headerTitle: { color: '#93C5FD', fontSize: 14, fontWeight: '600', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 },
+    headerTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 },
     seletorMes: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
     botaoMes: { padding: 6 },
     botaoMesDesativado: { opacity: 0.35 },
-    rotuloMes: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', minWidth: 155, textAlign: 'center', textTransform: 'capitalize' },
-    saldoText: { color: '#FFFFFF', fontSize: 40, fontWeight: 'bold' },
-    saldoLabel: { color: '#E0E7FF', fontSize: 14, marginTop: 5, marginBottom: 15 },
+    rotuloMes: { fontSize: 16, fontFamily: 'Inter_700Bold', minWidth: 155, textAlign: 'center', textTransform: 'capitalize' },
+    saldoText: { fontSize: 40, fontFamily: 'Inter_800ExtraBold' },
+    saldoLabel: { fontSize: 14, marginTop: 5, marginBottom: 15 },
     resumoRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginTop: 10, paddingHorizontal: 20 },
-    resumoText: { color: '#93C5FD', fontSize: 12, fontWeight: 'bold' },
+    resumoText: { fontSize: 12, fontWeight: 'bold' },
     scrollContainer: { flex: 1 },
     section: { padding: 20, paddingBottom: 0 },
-    sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
+    sectionTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', marginBottom: 15 },
     graficoCard: { borderRadius: 16, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
 
     essencialCard: { padding: 16, borderRadius: 16, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 5, elevation: 1 },
     essencialInfoRow: { flexDirection: 'row', alignItems: 'center' },
     essencialCardPago: { opacity: 0.6 },
     textoRiscado: { textDecorationLine: 'line-through', opacity: 0.7 },
-    lojaText: { fontSize: 16, fontWeight: '700' },
+    lojaText: { fontSize: 16, fontFamily: 'Inter_700Bold' },
     detalheText: { fontSize: 12, marginTop: 4 },
     valorFixo: { fontSize: 16, fontWeight: 'bold' },
 
     fab: { position: 'absolute', bottom: 20, right: 20, width: 65, height: 65, borderRadius: 35, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 8 },
     fabDesativado: { opacity: 0.4 },
-    modalFundo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+    modalFundo: { flex: 1, justifyContent: 'center', padding: 20 },
     modalContent: { borderRadius: 25, padding: 25, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 10 },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-    modalTitle: { fontSize: 18, fontWeight: 'bold' },
-    inputGrande: { fontSize: 40, fontWeight: 'bold', textAlign: 'center', marginBottom: 20, padding: 10 },
+    modalTitle: { fontSize: 18, fontFamily: 'Inter_700Bold' },
+    inputGrande: { fontSize: 40, fontFamily: 'Inter_700Bold', textAlign: 'center', marginBottom: 20, padding: 10 },
     inputNormal: { padding: 15, borderRadius: 12, fontSize: 16, marginBottom: 15 },
     pickerContainer: { borderRadius: 12, marginBottom: 15, overflow: 'hidden', paddingHorizontal: Platform.OS === 'android' ? 5 : 0 },
     labelPessoa: { fontSize: 14, fontWeight: 'bold', marginBottom: 10, marginTop: 5 },

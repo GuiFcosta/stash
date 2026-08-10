@@ -1,7 +1,16 @@
 import React from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useFonts } from '@expo-google-fonts/inter';
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  Inter_800ExtraBold,
+} from '@expo-google-fonts/inter';
 import { MonthProvider } from './src/context/MonthContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 
@@ -21,8 +30,12 @@ function MainTabs() {
       <Tab.Navigator
         screenOptions={({ route }) => ({
           headerShown: false,
-          tabBarActiveTintColor: isDarkMode ? '#60A5FA' : '#1E3A8A',
-          tabBarInactiveTintColor: isDarkMode ? '#64748B' : '#9CA3AF',
+          tabBarActiveTintColor: colors.primaryLight,
+          tabBarInactiveTintColor: colors.textDisabled,
+          tabBarLabelStyle: {
+            fontFamily: 'Inter_600SemiBold',
+            fontSize: 11,
+          },
           tabBarStyle: {
             backgroundColor: colors.cardBg,
             borderTopColor: colors.border,
@@ -56,6 +69,22 @@ function MainTabs() {
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
+  });
+
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F7FA' }}>
+        <ActivityIndicator size="large" color="#3B82F6" />
+      </View>
+    );
+  }
+
   return (
     <ThemeProvider>
       <MonthProvider>
