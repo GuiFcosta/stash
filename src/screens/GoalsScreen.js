@@ -1,16 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, query, where } from 'firebase/firestore';
 import { db } from '../services/Firebase';
 import { chaveDoMes } from '../utils/Month';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { hexToRgba } from '../utils/colors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
+import EmptyState from '../components/EmptyState';
+import { SkeletonGoalCard } from '../components/SkeletonLoader';
 
 export default function GoalsScreen() {
     const { colors } = useTheme();
+    const { user, userProfile, familyData } = useAuth();
+    const insets = useSafeAreaInsets();
 
     const [objetivos, setObjetivos] = useState([]);
+    const [carregando, setCarregando] = useState(true);
     const [objetivoSelecionado, setObjetivoSelecionado] = useState(null);
 
     const [modalCriarVisivel, setModalCriarVisivel] = useState(false);
@@ -27,16 +35,29 @@ export default function GoalsScreen() {
     const [modalMovimentoVisivel, setModalMovimentoVisivel] = useState(false);
     const [valorMovimento, setValorMovimento] = useState('');
 
+    const familyId = familyData?.id;
+
     useEffect(() => {
-        const unsubscribe = onSnapshot(collection(db, 'objetivos'), (snapshot) => {
+        if (!familyId) return;
+
+        setCarregando(true);
+        const q = query(collection(db, 'objetivos'), where('familyId', '==', familyId));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
             const listaObjetivos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setObjetivos(listaObjetivos);
+            setCarregando(false);
+        }, (err) => {
+            console.error("Erro ao carregar objetivos:", err);
+            setCarregando(false);
         });
+
         return () => unsubscribe();
-    }, []);
+    }, [familyId]);
 
     const guardarNovoObjetivo = async () => {
         if (!novoTitulo || !novaMeta) { Alert.alert("Aviso", "Preenche o título e a meta!"); return; }
+        if (!familyId) return;
+
         const meta = Number(novaMeta.trim().replace(',', '.'));
         const guardado = novoGuardado ? Number(novoGuardado.trim().replace(',', '.')) : 0;
         if (!Number.isFinite(meta) || !Number.isFinite(guardado) || meta <= 0 || guardado < 0) {
@@ -45,11 +66,13 @@ export default function GoalsScreen() {
         }
         try {
             await addDoc(collection(db, 'objetivos'), {
+                familyId: familyId,
                 titulo: novoTitulo,
                 meta,
                 guardado,
                 icone: novoIcone.trim() === '' ? '🎯' : novoIcone
             });
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             setNovoTitulo(''); setNovaMeta(''); setNovoGuardado(''); setNovoIcone('');
             setModalCriarVisivel(false);
         } catch (error) { Alert.alert("Erro", "Erro ao criar meta."); }
@@ -76,13 +99,14 @@ export default function GoalsScreen() {
                 icone: editIcone.trim() === '' ? '🎯' : editIcone,
                 meta
             });
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             setModalEditarVisivel(false);
             setObjetivoSelecionado(null);
         } catch (error) { Alert.alert("Erro", "Erro ao editar."); }
     };
 
     const realizarMovimento = async (tipo) => {
-        if (!valorMovimento || !objetivoSelecionado) return;
+        if (!valorMovimento || !objetivoSelecionado || !familyId) return;
 
         try {
             const valorAcao = Number(valorMovimento.trim().replace(',', '.'));
@@ -113,15 +137,18 @@ export default function GoalsScreen() {
             const mesStr = String(dataAtual.getMonth() + 1).padStart(2, '0');
 
             await addDoc(collection(db, 'gastos_variaveis'), {
+                familyId: familyId,
                 loja: tipo === 'depositar' ? `Poupança: ${objetivoSelecionado.titulo}` : `Resgate: ${objetivoSelecionado.titulo}`,
                 valor: valorParaHome,
                 data: `${diaStr}/${mesStr}`,
-                quem: 'Eu',
+                quem: userProfile?.nome || 'Eu',
+                quemUid: user?.uid || '',
                 categoria: 'Poupança',
                 mesReferencia: chaveDoMes(dataAtual),
                 timestamp: Date.now()
             });
 
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             setValorMovimento('');
             setObjetivoSelecionado(null);
             setModalMovimentoVisivel(false);
@@ -130,13 +157,14 @@ export default function GoalsScreen() {
                 "Sucesso!",
                 tipo === 'depositar'
                     ? `Guardaste ${valorAcao}€.`
-                    : `Retiraste ${valorAcao}€. O valor voltou à tua carteira (Saldo Disponível).`
+                    : `Retiraste ${valorAcao}€. O valor voltou ao Saldo Disponível.`
             );
 
         } catch (error) { Alert.alert("Erro", "Erro ao movimentar dinheiro."); }
     };
 
     const gerirObjetivo = (objetivo) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         Alert.alert(
             "Gerir Objetivo",
             `O que desejas fazer com "${objetivo.titulo}"?`,
@@ -150,6 +178,7 @@ export default function GoalsScreen() {
                     onPress: async () => {
                         try {
                             await deleteDoc(doc(db, 'objetivos', objetivo.id));
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                         } catch (error) {
                             Alert.alert("Erro", "Erro ao apagar a meta.");
                         }
@@ -161,88 +190,101 @@ export default function GoalsScreen() {
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={[styles.header, { backgroundColor: colors.background }]}>
-                <Text style={[styles.headerTitle, { color: colors.textDark }]}>Objetivos da Família</Text>
+            <View style={[styles.header, { backgroundColor: colors.background, paddingTop: Math.max(insets.top + 10, 30) }]}>
+                <Text style={[styles.headerTitle, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>Objetivos da Família</Text>
             </View>
 
             <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-                {objetivos.map((objetivo) => {
-                    const percentagem = Math.min(objetivo.meta > 0 ? (objetivo.guardado / objetivo.meta) * 100 : 0, 100);
-                    const concluido = percentagem >= 100;
+                {carregando ? (
+                    <View style={{ gap: 12 }}>
+                        <SkeletonGoalCard />
+                        <SkeletonGoalCard />
+                    </View>
+                ) : objetivos.length === 0 ? (
+                    <EmptyState
+                        titulo="Sem metas definidas"
+                        subtitulo="Cria objetivos de poupança como viagens, fundo de emergência ou compras."
+                        icone="flag-outline"
+                    />
+                ) : (
+                    objetivos.map((objetivo) => {
+                        const percentagem = Math.min(objetivo.meta > 0 ? (objetivo.guardado / objetivo.meta) * 100 : 0, 100);
+                        const concluido = percentagem >= 100;
 
-                    return (
-                        <TouchableOpacity key={objetivo.id} style={[styles.card, { backgroundColor: colors.cardBg }]} activeOpacity={0.8} onPress={() => gerirObjetivo(objetivo)}>
-                            <View style={styles.cardHeader}>
-                                <Text style={[styles.titulo, { color: colors.textDark }]}>{objetivo.icone} {objetivo.titulo}</Text>
-                                <Text style={[styles.valores, { color: colors.textLight }]}>
-                                    <Text style={[styles.guardado, { color: colors.textDark }]}>{objetivo.guardado.toFixed(0)}€</Text> / {objetivo.meta.toFixed(0)}€
-                                </Text>
-                            </View>
-                            <View style={[styles.barraFundo, { backgroundColor: colors.inputBg }]}>
-                                <View style={[styles.barraProgresso, { width: `${percentagem}%`, backgroundColor: concluido ? colors.success : colors.primaryLight }]} />
-                            </View>
-                        </TouchableOpacity>
-                    );
-                })}
+                        return (
+                            <TouchableOpacity key={objetivo.id} style={[styles.card, { backgroundColor: colors.cardBg, borderColor: colors.border }]} activeOpacity={0.8} onPress={() => gerirObjetivo(objetivo)}>
+                                <View style={styles.cardHeader}>
+                                    <Text style={[styles.titulo, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>{objetivo.icone} {objetivo.titulo}</Text>
+                                    <Text style={[styles.valores, { color: colors.textLight, fontFamily: 'Inter_400Regular' }]}>
+                                        <Text style={[styles.guardado, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>{objetivo.guardado.toFixed(0)}€</Text> / {objetivo.meta.toFixed(0)}€
+                                    </Text>
+                                </View>
+                                <View style={[styles.barraFundo, { backgroundColor: colors.inputBg }]}>
+                                    <View style={[styles.barraProgresso, { width: `${percentagem}%`, backgroundColor: concluido ? colors.success : colors.primaryLight }]} />
+                                </View>
+                            </TouchableOpacity>
+                        );
+                    })
+                )}
             </ScrollView>
 
-            <TouchableOpacity style={[styles.fab, { backgroundColor: colors.primaryLight }]} activeOpacity={0.8} onPress={() => setModalCriarVisivel(true)}>
+            <TouchableOpacity style={[styles.fab, { backgroundColor: colors.primaryLight }]} activeOpacity={0.8} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setModalCriarVisivel(true); }}>
                 <Ionicons name="add" size={32} color="#FFFFFF" />
             </TouchableOpacity>
 
             {/* MODAL 1: CRIAR NOVA META */}
             <Modal animationType="fade" transparent={true} visible={modalCriarVisivel} onRequestClose={() => setModalCriarVisivel(false)}>
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalFundo, { backgroundColor: colors.modalFundo }]}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
                     <View style={[styles.modalContent, { backgroundColor: colors.modalContent }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: colors.textDark }]}>Novo Objetivo</Text>
+                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>Novo Objetivo</Text>
                             <TouchableOpacity onPress={() => setModalCriarVisivel(false)}><Ionicons name="close" size={28} color={colors.textLight} /></TouchableOpacity>
                         </View>
-                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark }]} placeholder="Título (Ex: Viagem)" placeholderTextColor={colors.textDisabled} value={novoTitulo} onChangeText={setNovoTitulo} />
-                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark }]} placeholder="Emoji (Ex: ✈️)" placeholderTextColor={colors.textDisabled} value={novoIcone} onChangeText={setNovoIcone} />
+                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'Inter_400Regular' }]} placeholder="Título (Ex: Viagem)" placeholderTextColor={colors.textDisabled} value={novoTitulo} onChangeText={setNovoTitulo} />
+                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'Inter_400Regular' }]} placeholder="Emoji (Ex: ✈️)" placeholderTextColor={colors.textDisabled} value={novoIcone} onChangeText={setNovoIcone} />
                         <View style={styles.rowInputs}>
-                            <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, flex: 1, marginRight: 10 }]} placeholder="Meta (€)" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={novaMeta} onChangeText={setNovaMeta} />
-                            <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, flex: 1 }]} placeholder="Já guardado (€)" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={novoGuardado} onChangeText={setNovoGuardado} />
+                            <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, flex: 1, marginRight: 10, fontFamily: 'Inter_400Regular' }]} placeholder="Meta (€)" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={novaMeta} onChangeText={setNovaMeta} />
+                            <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, flex: 1, fontFamily: 'Inter_400Regular' }]} placeholder="Já guardado (€)" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={novoGuardado} onChangeText={setNovoGuardado} />
                         </View>
-                        <TouchableOpacity style={[styles.btnGuardar, { backgroundColor: colors.primaryLight }]} onPress={guardarNovoObjetivo}><Text style={styles.btnGuardarTexto}>Criar Objetivo</Text></TouchableOpacity>
+                        <TouchableOpacity style={[styles.btnGuardar, { backgroundColor: colors.primaryLight }]} onPress={guardarNovoObjetivo}><Text style={[styles.btnGuardarTexto, { fontFamily: 'Inter_700Bold' }]}>Criar Objetivo</Text></TouchableOpacity>
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
 
             {/* MODAL 2: EDITAR META EXISTENTE */}
             <Modal animationType="fade" transparent={true} visible={modalEditarVisivel} onRequestClose={() => setModalEditarVisivel(false)}>
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalFundo, { backgroundColor: colors.modalFundo }]}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
                     <View style={[styles.modalContent, { backgroundColor: colors.modalContent }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: colors.textDark }]}>Editar Objetivo</Text>
+                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>Editar Objetivo</Text>
                             <TouchableOpacity onPress={() => setModalEditarVisivel(false)}><Ionicons name="close" size={28} color={colors.textLight} /></TouchableOpacity>
                         </View>
-                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark }]} placeholder="Título" placeholderTextColor={colors.textDisabled} value={editTitulo} onChangeText={setEditTitulo} />
-                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark }]} placeholder="Emoji" placeholderTextColor={colors.textDisabled} value={editIcone} onChangeText={setEditIcone} />
-                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark }]} placeholder="Valor da Meta (€)" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={editMeta} onChangeText={setEditMeta} />
-                        <TouchableOpacity style={[styles.btnGuardar, { backgroundColor: colors.primaryLight }]} onPress={guardarEdicao}><Text style={styles.btnGuardarTexto}>Guardar Alterações</Text></TouchableOpacity>
+                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'Inter_400Regular' }]} placeholder="Título" placeholderTextColor={colors.textDisabled} value={editTitulo} onChangeText={setEditTitulo} />
+                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'Inter_400Regular' }]} placeholder="Emoji" placeholderTextColor={colors.textDisabled} value={editIcone} onChangeText={setEditIcone} />
+                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'Inter_400Regular' }]} placeholder="Valor da Meta (€)" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={editMeta} onChangeText={setEditMeta} />
+                        <TouchableOpacity style={[styles.btnGuardar, { backgroundColor: colors.primaryLight }]} onPress={guardarEdicao}><Text style={[styles.btnGuardarTexto, { fontFamily: 'Inter_700Bold' }]}>Guardar Alterações</Text></TouchableOpacity>
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
 
             {/* MODAL 3: DEPOSITAR OU RETIRAR DINHEIRO */}
             <Modal animationType="fade" transparent={true} visible={modalMovimentoVisivel} onRequestClose={() => setModalMovimentoVisivel(false)}>
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalFundo, { backgroundColor: colors.modalFundo }]}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
                     <View style={[styles.modalContent, { backgroundColor: colors.modalContent }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: colors.textDark }]}>Movimentar Dinheiro</Text>
+                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>Movimentar Dinheiro</Text>
                             <TouchableOpacity onPress={() => setModalMovimentoVisivel(false)}><Ionicons name="close" size={28} color={colors.textLight} /></TouchableOpacity>
                         </View>
-                        <Text style={{ color: colors.textLight, marginBottom: 20, textAlign: 'center' }}>Valor a movimentar em: {objetivoSelecionado?.titulo}</Text>
+                        <Text style={{ color: colors.textLight, marginBottom: 20, textAlign: 'center', fontFamily: 'Inter_400Regular' }}>Valor a movimentar em: {objetivoSelecionado?.titulo}</Text>
 
-                        <TextInput style={[styles.inputGrande, { color: colors.primaryLight }]} placeholder="0,00 €" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={valorMovimento} onChangeText={setValorMovimento} autoFocus={true} />
+                        <TextInput style={[styles.inputGrande, { color: colors.primaryLight, fontFamily: 'Inter_700Bold' }]} placeholder="0,00 €" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={valorMovimento} onChangeText={setValorMovimento} autoFocus={true} />
 
                         <View style={styles.rowInputs}>
                             <TouchableOpacity style={[styles.btnGuardar, { backgroundColor: colors.primaryLight, flex: 1, marginRight: 10 }]} onPress={() => realizarMovimento('depositar')}>
-                                <Text style={styles.btnGuardarTexto}>Depositar</Text>
+                                <Text style={[styles.btnGuardarTexto, { fontFamily: 'Inter_700Bold' }]}>Depositar</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={[styles.btnRetirar, { flex: 1, backgroundColor: colors.dangerSoft }]} onPress={() => realizarMovimento('retirar')}>
-                                <Text style={[styles.btnRetirarTexto, { color: colors.danger }]}>Retirar</Text>
+                            <TouchableOpacity style={[styles.btnRetirar, { flex: 1, backgroundColor: hexToRgba(colors.danger, 0.15) }]} onPress={() => realizarMovimento('retirar')}>
+                                <Text style={[styles.btnRetirarTexto, { color: colors.danger, fontFamily: 'Inter_700Bold' }]}>Retirar</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -254,26 +296,26 @@ export default function GoalsScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: { padding: 30, paddingTop: 60, alignItems: 'center' },
-    headerTitle: { fontSize: 22, fontFamily: 'Inter_700Bold' },
+    header: { paddingHorizontal: 24, paddingBottom: 16, alignItems: 'center' },
+    headerTitle: { fontSize: 22, fontWeight: 'bold' },
     content: { padding: 20 },
-    card: { padding: 20, borderRadius: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
+    card: { padding: 20, borderRadius: 16, marginBottom: 16, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-    titulo: { fontSize: 18, fontFamily: 'Inter_700Bold' },
+    titulo: { fontSize: 18, fontWeight: 'bold' },
     valores: { fontSize: 14 },
-    guardado: { fontFamily: 'Inter_700Bold' },
+    guardado: { fontWeight: 'bold' },
     barraFundo: { height: 12, borderRadius: 6, overflow: 'hidden' },
     barraProgresso: { height: '100%', borderRadius: 6 },
     fab: { position: 'absolute', bottom: 20, right: 20, width: 65, height: 65, borderRadius: 35, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 8 },
-    modalFundo: { flex: 1, justifyContent: 'center', padding: 20 },
+    modalFundo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
     modalContent: { borderRadius: 25, padding: 25, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 10 },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-    modalTitle: { fontSize: 18, fontFamily: 'Inter_700Bold' },
+    modalTitle: { fontSize: 18, fontWeight: 'bold' },
     inputNormal: { padding: 15, borderRadius: 12, fontSize: 16, marginBottom: 15 },
-    inputGrande: { fontSize: 40, fontFamily: 'Inter_700Bold', textAlign: 'center', marginBottom: 20, padding: 10 },
+    inputGrande: { fontSize: 40, fontWeight: 'bold', textAlign: 'center', marginBottom: 20, padding: 10 },
     rowInputs: { flexDirection: 'row', justifyContent: 'space-between' },
     btnGuardar: { padding: 16, borderRadius: 12, alignItems: 'center' },
-    btnGuardarTexto: { color: '#FFFFFF', fontSize: 16, fontFamily: 'Inter_700Bold' },
+    btnGuardarTexto: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
     btnRetirar: { padding: 16, borderRadius: 12, alignItems: 'center' },
-    btnRetirarTexto: { fontSize: 16, fontFamily: 'Inter_700Bold' }
+    btnRetirarTexto: { fontSize: 16, fontWeight: 'bold' }
 });

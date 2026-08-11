@@ -1,7 +1,6 @@
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-
-// Your web app's Firebase configuration
+import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
     apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -15,3 +14,4 @@ const firebaseConfig = {
 // Evita uma inicialização duplicada durante atualizações em desenvolvimento.
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+export const auth = getAuth(app);
