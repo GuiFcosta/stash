@@ -15,6 +15,7 @@ import {
     RefreshControl,
     Share
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from "../services/Firebase";
@@ -59,6 +60,34 @@ export default function ProfileScreen() {
     // Limites de Orçamento
     const [rascunhoLimites, setRascunhoLimites] = useState({});
     const [modalLimitesVisivel, setModalLimitesVisivel] = useState(false);
+
+    // Notificações
+    const [lembreteContas, setLembreteContas] = useState(false);
+    const [alertaSemanal, setAlertaSemanal] = useState(false);
+
+    const toggleLembreteContas = async (valor) => {
+        const { requestNotificationPermissions, scheduleFixedExpensesReminder } = require('../services/NotificationService');
+        const permitido = await requestNotificationPermissions();
+        if (!permitido && valor) {
+            Alert.alert("Permissão Negada", "Ativa as notificações nas definições do teu telemóvel para receberes avisos do Stash.");
+            return;
+        }
+        setLembreteContas(valor);
+        await scheduleFixedExpensesReminder(valor);
+        if (valor) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    };
+
+    const toggleAlertaSemanal = async (valor) => {
+        const { requestNotificationPermissions, scheduleWeeklyBalanceAlert } = require('../services/NotificationService');
+        const permitido = await requestNotificationPermissions();
+        if (!permitido && valor) {
+            Alert.alert("Permissão Negada", "Ativa as notificações nas definições do teu telemóvel para receberes avisos do Stash.");
+            return;
+        }
+        setAlertaSemanal(valor);
+        await scheduleWeeklyBalanceAlert(valor);
+        if (valor) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    };
     const [atualizando, setAtualizando] = useState(false);
 
     useEffect(() => {
@@ -109,7 +138,11 @@ export default function ProfileScreen() {
     // 2. DESPESAS FIXAS
     const abrirModalFixas = () => {
         const fixasAtuais = familyData?.despesasFixas || [];
-        const copia = fixasAtuais.map(item => ({ ...item, valorString: (item.valor || 0).toString() }));
+        const copia = fixasAtuais.map(item => ({
+            ...item,
+            valorString: (item.valor || 0).toString(),
+            categoria: item.categoria || 'Casa'
+        }));
         setListaFixas(copia);
         setModalFixasVisivel(true);
     };
@@ -121,7 +154,7 @@ export default function ProfileScreen() {
     };
 
     const adicionarItemFixa = () => {
-        const novoItem = { id: Date.now().toString(), nome: '', valorString: '', tipo: 'Fixo' };
+        const novoItem = { id: Date.now().toString(), nome: '', valorString: '', tipo: 'Fixo', categoria: 'Casa' };
         setListaFixas([...listaFixas, novoItem]);
     };
 
@@ -138,8 +171,10 @@ export default function ProfileScreen() {
                 id: item.id,
                 nome: item.nome || 'Sem Nome',
                 tipo: item.tipo || 'Fixo',
+                categoria: item.categoria || 'Casa',
                 valor: converterEmNumero(item.valorString),
-                pago: Boolean(item.pago)
+                pago: Boolean(item.pago),
+                pagamentos: item.pagamentos || {}
             }));
 
             if (listaLimpa.some(item => !Number.isFinite(item.valor) || item.valor < 0)) {
@@ -252,8 +287,8 @@ export default function ProfileScreen() {
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={[styles.header, { backgroundColor: colors.background, paddingTop: Math.max(insets.top + 10, 40) }]}>
-                <Text style={[styles.headerTitle, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>O Meu Perfil</Text>
+            <View style={[styles.header, { paddingTop: Math.max(insets.top + 10, 30) }]}>
+                <Text style={[styles.headerTitle, { color: colors.textDark }]}>O Meu Perfil</Text>
             </View>
 
             <ScrollView
@@ -287,9 +322,6 @@ export default function ProfileScreen() {
                                     {isAdmin ? '👑 Administrador' : '👤 Membro'}
                                 </Text>
                             </View>
-                            <Text style={[styles.grupoNomeTexto, { color: colors.textMuted }]}>
-                                • {familyData?.nome || 'Grupo Solo'}
-                            </Text>
                         </View>
                     </View>
                 </View>
@@ -336,7 +368,7 @@ export default function ProfileScreen() {
                     />
                     <MenuItem
                         icone="home-outline"
-                        titulo="Despesas da Casa (Fixas)"
+                        titulo="Despesas Mensais"
                         subtitulo={`${totalContasFixas} contas registadas`}
                         corIcone={colors.warning}
                         acao={abrirModalFixas}
@@ -349,6 +381,43 @@ export default function ProfileScreen() {
                         acao={abrirModalLimites}
                     />
                 </View>
+
+                {/* NOTIFICAÇÕES & LEMBRETES */}
+                {/*<Text style={[styles.sectionTitle, { color: colors.textDisabled, fontFamily: 'Inter_700Bold' }]}>*/}
+                {/*    Notificações & Lembretes*/}
+                {/*</Text>*/}
+                {/*<View style={[styles.menuGroup, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>*/}
+                {/*    <MenuItem*/}
+                {/*        icone="notifications-outline"*/}
+                {/*        titulo="Lembrete de Contas (Dia 1)"*/}
+                {/*        subtitulo="Aviso para pagar contas no início do mês"*/}
+                {/*        corIcone={colors.warning}*/}
+                {/*        acao={() => toggleLembreteContas(!lembreteContas)}*/}
+                {/*        rightElement={*/}
+                {/*            <Switch*/}
+                {/*                value={lembreteContas}*/}
+                {/*                onValueChange={toggleLembreteContas}*/}
+                {/*                trackColor={{ false: '#D1D5DB', true: colors.primaryLight }}*/}
+                {/*                thumbColor={lembreteContas ? colors.primary : '#FFFFFF'}*/}
+                {/*            />*/}
+                {/*        }*/}
+                {/*    />*/}
+                {/*    <MenuItem*/}
+                {/*        icone="trending-up-outline"*/}
+                {/*        titulo="Alerta de Saldo Semanal"*/}
+                {/*        subtitulo="Resumo do orçamento todas as Segundas-feiras"*/}
+                {/*        corIcone={colors.success}*/}
+                {/*        acao={() => toggleAlertaSemanal(!alertaSemanal)}*/}
+                {/*        rightElement={*/}
+                {/*            <Switch*/}
+                {/*                value={alertaSemanal}*/}
+                {/*                onValueChange={toggleAlertaSemanal}*/}
+                {/*                trackColor={{ false: '#D1D5DB', true: colors.primaryLight }}*/}
+                {/*                thumbColor={alertaSemanal ? colors.primary : '#FFFFFF'}*/}
+                {/*            />*/}
+                {/*        }*/}
+                {/*    />*/}
+                {/*</View>*/}
 
                 {/* APARÊNCIA E CONTA */}
                 <Text style={[styles.sectionTitle, { color: colors.textDisabled, fontFamily: 'Inter_700Bold' }]}>
@@ -557,25 +626,40 @@ export default function ProfileScreen() {
                         </View>
                         <ScrollView showsVerticalScrollIndicator={false} style={{ marginBottom: 15 }}>
                             {listaFixas.map((item, index) => (
-                                <View key={item.id} style={styles.linhaDespesa}>
-                                    <TextInput
-                                        style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, flex: 2, marginBottom: 0, marginRight: 10 }]}
-                                        placeholder="Nome (ex: Luz)"
-                                        placeholderTextColor={colors.textDisabled}
-                                        value={item.nome}
-                                        onChangeText={(texto) => atualizarItemFixa(index, 'nome', texto)}
-                                    />
-                                    <TextInput
-                                        style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, flex: 1, marginBottom: 0, textAlign: 'center' }]}
-                                        placeholder="0,00"
-                                        placeholderTextColor={colors.textDisabled}
-                                        keyboardType="decimal-pad"
-                                        value={item.valorString}
-                                        onChangeText={(texto) => atualizarItemFixa(index, 'valorString', texto)}
-                                    />
-                                    <TouchableOpacity style={styles.btnRemover} onPress={() => removerItemFixa(index)}>
-                                        <Ionicons name="trash-outline" size={22} color={colors.danger} />
-                                    </TouchableOpacity>
+                                <View key={item.id} style={[styles.cardContaFixaEdit, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                                    <View style={styles.linhaDespesa}>
+                                        <TextInput
+                                            style={[styles.inputNormal, { backgroundColor: colors.cardBg, color: colors.textDark, flex: 2, marginBottom: 0, marginRight: 10 }]}
+                                            placeholder="Nome (ex: Luz)"
+                                            placeholderTextColor={colors.textDisabled}
+                                            value={item.nome}
+                                            onChangeText={(texto) => atualizarItemFixa(index, 'nome', texto)}
+                                        />
+                                        <TextInput
+                                            style={[styles.inputNormal, { backgroundColor: colors.cardBg, color: colors.textDark, flex: 1, marginBottom: 0, textAlign: 'center' }]}
+                                            placeholder="0,00 €"
+                                            placeholderTextColor={colors.textDisabled}
+                                            keyboardType="decimal-pad"
+                                            value={item.valorString}
+                                            onChangeText={(texto) => atualizarItemFixa(index, 'valorString', texto)}
+                                        />
+                                        <TouchableOpacity style={styles.btnRemover} onPress={() => removerItemFixa(index)}>
+                                            <Ionicons name="trash-outline" size={22} color={colors.danger} />
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <View style={[styles.pickerContainer, { backgroundColor: colors.cardBg, marginTop: 8, marginBottom: 0 }]}>
+                                        <Picker
+                                            selectedValue={item.categoria || 'Casa'}
+                                            onValueChange={(cat) => atualizarItemFixa(index, 'categoria', cat)}
+                                            style={{ color: colors.textDark }}
+                                            itemStyle={Platform.OS === 'ios' ? { height: 100, fontSize: 14, color: colors.textDark } : {}}
+                                        >
+                                            {CATEGORIAS_DE_GASTO.map((cat) => (
+                                                <Picker.Item key={cat} label={cat} value={cat} color={colors.textDark} />
+                                            ))}
+                                        </Picker>
+                                    </View>
                                 </View>
                             ))}
                             <TouchableOpacity style={[styles.btnAdicionarNova, { borderColor: colors.primaryLight, backgroundColor: `${colors.primaryLight}15` }]} onPress={adicionarItemFixa}>
@@ -632,7 +716,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { paddingHorizontal: 24, paddingBottom: 16, alignItems: 'center' },
-    headerTitle: { fontSize: 22, fontWeight: 'bold' },
+    headerTitle: { fontSize: 28,  fontFamily: 'Inter_800ExtraBold',},
     content: { padding: 20 },
     profileCard: { padding: 20, borderRadius: 16, flexDirection: 'row', alignItems: 'center', marginBottom: 25, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
     avatar: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
@@ -676,7 +760,9 @@ const styles = StyleSheet.create({
     membroNome: { fontSize: 14, fontWeight: 'bold' },
     membroSub: { fontSize: 12, marginTop: 2 },
 
-    linhaDespesa: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+    linhaDespesa: { flexDirection: 'row', alignItems: 'center' },
+    cardContaFixaEdit: { padding: 12, borderRadius: 14, marginBottom: 12, borderWidth: 1 },
+    pickerContainer: { borderRadius: 12, overflow: 'hidden', paddingHorizontal: Platform.OS === 'android' ? 5 : 0 },
     btnRemover: { padding: 10, marginLeft: 5 },
     btnAdicionarNova: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, borderRadius: 12, marginTop: 5, borderStyle: 'dashed', borderWidth: 1 },
     txtAdicionarNova: { fontWeight: 'bold', fontSize: 14 },

@@ -134,9 +134,21 @@ export default function HomeScreen() {
 
     const chaveMesSelecionado = chaveDoMes(mesSelecionado);
     const eMesAtual = chaveMesSelecionado === chaveDoMes(new Date());
-    const despesaFoiPagaNoMes = (despesa) => (
-        despesa.pagamentos?.[chaveMesSelecionado] ?? (eMesAtual && Boolean(despesa.pago))
-    );
+    const despesaFoiPagaNoMes = (despesa) => {
+        const val = despesa.pagamentos?.[chaveMesSelecionado];
+        if (typeof val === 'boolean') return val;
+        if (typeof val === 'object' && val !== null) return Boolean(val.pago);
+        return eMesAtual && Boolean(despesa.pago);
+    };
+
+    const obterQuemPagouNoMes = (despesa) => {
+        const val = despesa.pagamentos?.[chaveMesSelecionado];
+        if (typeof val === 'object' && val !== null && val.pago) {
+            return val.quem || null;
+        }
+        return null;
+    };
+
     const totalEssenciais = despesasEssenciais
         .filter(despesaFoiPagaNoMes)
         .reduce((soma, despesa) => soma + (Number(despesa.valor) || 0), 0);
@@ -144,7 +156,17 @@ export default function HomeScreen() {
     const saldoDisponivel = totalRenda - totalEssenciais - totalVariaveis;
     const podeAvancarMes = mesSelecionado < inicioDoMes(new Date());
 
-    const gastosPorCategoria = Object.values(gastosVariaveis.reduce((resultado, gasto) => {
+    const despesasFixasPagasNoMes = despesasEssenciais.filter(despesaFoiPagaNoMes);
+
+    const todosOsGastosParaGrafico = [
+        ...gastosVariaveis,
+        ...despesasFixasPagasNoMes.map(f => ({
+            valor: Number(f.valor) || 0,
+            categoria: f.categoria || 'Casa'
+        }))
+    ];
+
+    const gastosPorCategoria = Object.values(todosOsGastosParaGrafico.reduce((resultado, gasto) => {
         const valor = Number(gasto.valor) || 0;
         if (valor <= 0) return resultado;
 
@@ -167,14 +189,30 @@ export default function HomeScreen() {
         if (!familyId) return;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         try {
+            const novoEstado = !estadoAtual;
+            const nomeQuemPagou = userProfile?.nome || user?.displayName || 'Eu';
+            const uidQuemPagou = user?.uid || '';
+
             const novaLista = despesasEssenciais.map(item => {
                 if (item.id !== id) return item;
 
-                const pagamentos = { ...(item.pagamentos || {}), [chaveMesSelecionado]: !estadoAtual };
+                const pagamentos = { ...(item.pagamentos || {}) };
+
+                if (novoEstado) {
+                    pagamentos[chaveMesSelecionado] = {
+                        pago: true,
+                        quem: nomeQuemPagou,
+                        quemUid: uidQuemPagou,
+                        timestamp: Date.now()
+                    };
+                } else {
+                    delete pagamentos[chaveMesSelecionado];
+                }
+
                 return {
                     ...item,
                     pagamentos,
-                    ...(eMesAtual ? { pago: !estadoAtual } : {}),
+                    ...(eMesAtual ? { pago: novoEstado } : {}),
                 };
             });
 
@@ -332,6 +370,7 @@ export default function HomeScreen() {
                     <Text style={[styles.sectionTitle, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>Despesas Mensais</Text>
                     {despesasEssenciais.map((item) => {
                         const estaPaga = despesaFoiPagaNoMes(item);
+                        const quemPagou = obterQuemPagouNoMes(item);
                         return (
                             <TouchableOpacity
                                 key={item.id}
@@ -352,7 +391,9 @@ export default function HomeScreen() {
                                     />
                                     <View>
                                         <Text style={[styles.lojaText, { color: colors.textDark, fontFamily: 'Inter_700Bold' }, estaPaga && styles.textoRiscado]}>{item.nome}</Text>
-                                        <Text style={[styles.detalheText, { color: colors.textLight, fontFamily: 'Inter_400Regular' }]}>{estaPaga ? "Pago" : "Pendente"}</Text>
+                                        <Text style={[styles.detalheText, { color: colors.textLight, fontFamily: 'Inter_400Regular' }]}>
+                                            {estaPaga ? (quemPagou ? `Pago por ${quemPagou}` : "Pago") : "Pendente"}
+                                        </Text>
                                     </View>
                                 </View>
                                 <Text style={[styles.valorFixo, { color: colors.textMuted, fontFamily: 'Inter_700Bold' }, estaPaga && styles.textoRiscado]}>-{item.valor.toFixed(2)} €</Text>

@@ -1,9 +1,10 @@
 export const CATEGORIAS_DE_GASTO = [
     'Alimentação',
     'Restaurantes e Cafés',
-    'Transportes',
     'Casa',
+    'Streaming',
     'Saúde',
+    'Transportes',
     'Lazer',
     'Compras',
     'Educação',

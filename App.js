@@ -22,6 +22,8 @@ import SummaryScreen from './src/screens/SummaryScreen';
 import GoalsScreen from './src/screens/GoalsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AuthScreen from './src/screens/AuthScreen';
+import ReportsScreen from './src/screens/ReportsScreen';
+import './src/services/NotificationService'; // Inicializa handlers de notificação
 
 const Tab = createBottomTabNavigator();
 
@@ -55,6 +57,8 @@ function MainTabs() {
               iconName = focused ? 'flag' : 'flag-outline';
             } else if (route.name === 'Por Pessoa') {
               iconName = focused ? 'pie-chart' : 'pie-chart-outline';
+            } else if (route.name === 'Relatórios') {
+              iconName = focused ? 'stats-chart' : 'stats-chart-outline';
             } else if (route.name === 'Meu Perfil') {
               iconName = focused ? 'person' : 'person-outline';
             }
@@ -65,6 +69,7 @@ function MainTabs() {
         <Tab.Screen name="Início" component={HomeScreen} />
         <Tab.Screen name="Objetivos" component={GoalsScreen} />
         <Tab.Screen name="Por Pessoa" component={SummaryScreen} />
+        <Tab.Screen name="Relatórios" component={ReportsScreen} />
         <Tab.Screen name="Meu Perfil" component={ProfileScreen} />
       </Tab.Navigator>
     </NavigationContainer>

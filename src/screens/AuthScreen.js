@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, SafeAreaView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, SafeAreaView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -21,26 +21,26 @@ export default function AuthScreen() {
     const [signupCodigo, setSignupCodigo] = useState('');
 
     const handleLogin = async () => {
-        if (!loginEmail || !loginPassword) {
-            alert("Preenche o e-mail e a palavra-passe.");
+        if (!loginEmail.trim() || !loginPassword.trim()) {
+            Alert.alert("Aviso", "Preenche o e-mail e a palavra-passe.");
             return;
         }
         try {
             await login(loginEmail, loginPassword);
         } catch (error) {
-            // Trado dentro do AuthContext
+            // Tratado no AuthContext
         }
     };
 
     const handleSignup = async () => {
-        if (!signupNome || !signupEmail || !signupPassword) {
-            alert("Preenche o teu nome, e-mail e palavra-passe.");
+        if (!signupNome.trim() || !signupEmail.trim() || !signupPassword.trim()) {
+            Alert.alert("Aviso", "Preenche o teu nome, e-mail e palavra-passe.");
             return;
         }
         try {
             await signup(signupNome, signupEmail, signupPassword, signupCodigo);
         } catch (error) {
-            // Trado dentro do AuthContext
+            // Tratado no AuthContext
         }
     };
 

@@ -9,15 +9,13 @@ import {
 import {
     doc,
     setDoc,
-    getDoc,
     updateDoc,
     onSnapshot,
     collection,
     query,
     where,
     getDocs,
-    arrayUnion,
-    arrayRemove
+    arrayUnion
 } from 'firebase/firestore';
 import { auth, db } from '../services/Firebase';
 import { Alert } from 'react-native';
@@ -50,37 +48,33 @@ export function AuthProvider({ children }) {
             if (unsubFamilyDoc) unsubFamilyDoc();
 
             if (firebaseUser) {
-                // Escuta o perfil do utilizador em users/{uid}
                 const userRef = doc(db, 'users', firebaseUser.uid);
+
                 unsubUserDoc = onSnapshot(userRef, async (userSnap) => {
                     if (userSnap.exists()) {
                         const uData = userSnap.data();
                         setUserProfile(uData);
 
                         if (uData.familyId) {
-                            // Escuta a família em familias/{familyId}
                             const famRef = doc(db, 'familias', uData.familyId);
                             if (unsubFamilyDoc) unsubFamilyDoc();
 
-                            unsubFamilyDoc = onSnapshot(famRef, (famSnap) => {
+                            unsubFamilyDoc = onSnapshot(famRef, async (famSnap) => {
                                 if (famSnap.exists()) {
                                     setFamilyData(famSnap.data());
+                                    setLoading(false);
                                 } else {
-                                    setFamilyData(null);
+                                    await autoCriarPerfilEFamillia(firebaseUser);
                                 }
-                                setLoading(false);
                             }, (err) => {
                                 console.error("Erro na escuta da família:", err);
                                 setLoading(false);
                             });
                         } else {
-                            setFamilyData(null);
-                            setLoading(false);
+                            await autoCriarPerfilEFamillia(firebaseUser);
                         }
                     } else {
-                        setUserProfile(null);
-                        setFamilyData(null);
-                        setLoading(false);
+                        await autoCriarPerfilEFamillia(firebaseUser);
                     }
                 }, (err) => {
                     console.error("Erro na escuta do utilizador:", err);
@@ -100,47 +94,99 @@ export function AuthProvider({ children }) {
         };
     }, []);
 
+    // Função de auto-reparação para criar perfil Firestore e família solo
+    const autoCriarPerfilEFamillia = async (firebaseUser) => {
+        const newFamId = `fam_${firebaseUser.uid.slice(0, 8)}`;
+        const nomeUser = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Utilizador';
+        const novoCodigoConvite = gerarCodigo();
+
+        try {
+            await setDoc(doc(db, 'familias', newFamId), {
+                id: newFamId,
+                nome: `Família de ${nomeUser}`,
+                codigoConvite: novoCodigoConvite,
+                criadoPor: firebaseUser.uid,
+                membros: [
+                    {
+                        uid: firebaseUser.uid,
+                        nome: nomeUser,
+                        email: firebaseUser.email || '',
+                        renda: 0,
+                        role: 'admin'
+                    }
+                ],
+                despesasFixas: [],
+                limitesCategorias: {}
+            }, { merge: true });
+
+            await setDoc(doc(db, 'users', firebaseUser.uid), {
+                uid: firebaseUser.uid,
+                nome: nomeUser,
+                email: firebaseUser.email || '',
+                familyId: newFamId,
+                criadoEm: Date.now()
+            }, { merge: true });
+
+        } catch (err) {
+            console.error("Erro no auto-criamento do perfil/família:", err);
+            setLoading(false);
+        }
+    };
+
     // 1. REGISTAR NOVO UTILIZADOR
     const signup = async (nome, email, password, codigoConvite = '') => {
         try {
             setLoading(true);
-            const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
-            const newUid = userCredential.user.uid;
+
             const nomeFormatado = nome.trim() || 'Utilizador';
-
-            await updateProfile(userCredential.user, { displayName: nomeFormatado });
-
-            let finalFamilyId = '';
             const codigoFormatado = codigoConvite.trim().toUpperCase();
 
+            let targetFamilyId = '';
             if (codigoFormatado) {
-                // Procurar família pelo código de convite
-                const q = query(collection(db, 'familias'), where('codigoConvite', '==', codigoFormatado));
-                const querySnap = await getDocs(q);
+                try {
+                    const q = query(collection(db, 'familias'), where('codigoConvite', '==', codigoFormatado));
+                    const querySnap = await getDocs(q);
 
-                if (!querySnap.empty) {
-                    const famDoc = querySnap.docs[0];
-                    finalFamilyId = famDoc.id;
-
-                    const novoMembro = {
-                        uid: newUid,
-                        nome: nomeFormatado,
-                        email: email.trim(),
-                        renda: 0,
-                        role: 'membro'
-                    };
-
-                    await updateDoc(doc(db, 'familias', finalFamilyId), {
-                        membros: arrayUnion(novoMembro)
-                    });
-                } else {
-                    Alert.alert("Aviso", "Código de convite não encontrado. Criámos um grupo solo para ti.");
+                    if (!querySnap.empty) {
+                        targetFamilyId = querySnap.docs[0].id;
+                    } else {
+                        setLoading(false);
+                        Alert.alert("Aviso", "O código de convite introduzido não é válido.");
+                        return false;
+                    }
+                } catch (qErr) {
+                    console.error("Erro a validar código de convite:", qErr);
                 }
             }
 
-            // Se não introduziu código válido ou deixou em branco, cria família Solo
-            if (!finalFamilyId) {
-                finalFamilyId = `fam_${newUid.slice(0, 8)}`;
+            // Criar conta no Firebase Auth
+            const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+            const newUid = userCredential.user.uid;
+
+            await updateProfile(userCredential.user, { displayName: nomeFormatado });
+
+            if (targetFamilyId) {
+                const novoMembro = {
+                    uid: newUid,
+                    nome: nomeFormatado,
+                    email: email.trim(),
+                    renda: 0,
+                    role: 'membro'
+                };
+
+                await updateDoc(doc(db, 'familias', targetFamilyId), {
+                    membros: arrayUnion(novoMembro)
+                }).catch(e => console.error("Erro ao adicionar membro:", e));
+
+                await setDoc(doc(db, 'users', newUid), {
+                    uid: newUid,
+                    nome: nomeFormatado,
+                    email: email.trim(),
+                    familyId: targetFamilyId,
+                    criadoEm: Date.now()
+                }, { merge: true }).catch(e => console.error("Erro ao criar perfil:", e));
+            } else {
+                const finalFamilyId = `fam_${newUid.slice(0, 8)}`;
                 const novoCodigoConvite = gerarCodigo();
 
                 await setDoc(doc(db, 'familias', finalFamilyId), {
@@ -159,27 +205,30 @@ export function AuthProvider({ children }) {
                     ],
                     despesasFixas: [],
                     limitesCategorias: {}
-                });
-            }
+                }, { merge: true }).catch(e => console.error("Erro ao criar família solo:", e));
 
-            // Cria o documento do utilizador
-            await setDoc(doc(db, 'users', newUid), {
-                uid: newUid,
-                nome: nomeFormatado,
-                email: email.trim(),
-                familyId: finalFamilyId,
-                criadoEm: Date.now()
-            });
+                await setDoc(doc(db, 'users', newUid), {
+                    uid: newUid,
+                    nome: nomeFormatado,
+                    email: email.trim(),
+                    familyId: finalFamilyId,
+                    criadoEm: Date.now()
+                }, { merge: true }).catch(e => console.error("Erro ao criar perfil:", e));
+            }
 
             setLoading(false);
             return true;
         } catch (error) {
             setLoading(false);
-            let msg = "Erro ao efetuar registo.";
+            console.error("Erro completo no signup:", error);
+
+            let msg = error.message || "Erro ao efetuar registo.";
             if (error.code === 'auth/email-already-in-use') msg = "Este e-mail já está em utilização.";
             if (error.code === 'auth/weak-password') msg = "A palavra-passe deve ter pelo menos 6 caracteres.";
             if (error.code === 'auth/invalid-email') msg = "E-mail inválido.";
-            Alert.alert("Erro", msg);
+            if (error.code === 'auth/operation-not-allowed') msg = "O início de sessão com Email/Password não está ativado na consola do Firebase.";
+
+            Alert.alert("Erro de Registo", `${msg} (${error.code || 'Desconhecido'})`);
             throw error;
         }
     };
@@ -193,9 +242,16 @@ export function AuthProvider({ children }) {
             return true;
         } catch (error) {
             setLoading(false);
-            let msg = "E-mail ou palavra-passe incorretos.";
-            if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') msg = "Credenciais inválidas.";
-            Alert.alert("Erro", msg);
+            console.error("Erro completo no login:", error);
+
+            let msg = error.message || "E-mail ou palavra-passe incorretos.";
+            if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+                msg = "Credenciais incorretas.";
+            }
+            if (error.code === 'auth/invalid-email') msg = "E-mail inválido.";
+            if (error.code === 'auth/operation-not-allowed') msg = "O início de sessão com Email/Password não está ativado na consola do Firebase.";
+
+            Alert.alert("Erro de Autenticação", `${msg} (${error.code || 'Desconhecido'})`);
             throw error;
         }
     };
@@ -232,7 +288,6 @@ export function AuthProvider({ children }) {
             const targetFamId = targetFamDoc.id;
             const targetData = targetFamDoc.data();
 
-            // Verificar se o utilizador já pertence a esta família
             if (targetData.membros?.some(m => m.uid === user.uid)) {
                 setLoading(false);
                 Alert.alert("Aviso", "Já pertencias a este grupo familiar.");
@@ -247,12 +302,10 @@ export function AuthProvider({ children }) {
                 role: 'membro'
             };
 
-            // Adiciona o novo membro na nova família
             await updateDoc(doc(db, 'familias', targetFamId), {
                 membros: arrayUnion(novoMembro)
             });
 
-            // Atualiza o familyId no perfil do utilizador
             await updateDoc(doc(db, 'users', user.uid), {
                 familyId: targetFamId
             });
@@ -310,20 +363,18 @@ export function AuthProvider({ children }) {
         }
     };
 
-    // 8. REMOVER MEMBRO DA FAMÍLIA (ADMIN OU PRÓPRIO MEMBRO A SAIR)
+    // 8. REMOVER MEMBRO DA FAMÍLIA
     const removeMember = async (targetUid) => {
         if (!familyData) return;
         try {
             const membroARemover = familyData.membros.find(m => m.uid === targetUid);
             if (!membroARemover) return;
 
-            // Remove o membro do documento da família atual
             const membrosRestantes = familyData.membros.filter(m => m.uid !== targetUid);
             await updateDoc(doc(db, 'familias', familyData.id), {
                 membros: membrosRestantes
             });
 
-            // Cria uma nova família solo para o membro removido
             const newSoloFamId = `fam_${targetUid.slice(0, 8)}`;
             const novoCodigo = gerarCodigo();
 
@@ -343,9 +394,8 @@ export function AuthProvider({ children }) {
                 ],
                 despesasFixas: [],
                 limitesCategorias: {}
-            });
+            }, { merge: true });
 
-            // Atualiza o familyId no perfil do utilizador removido
             await updateDoc(doc(db, 'users', targetUid), {
                 familyId: newSoloFamId
             });
