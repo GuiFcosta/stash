@@ -312,7 +312,7 @@ export default function HomeScreen() {
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <StatusBar style={isDarkMode ? "light" : "light"} />
 
-            <View style={[styles.header, { backgroundColor: isDarkMode ? colors.cardBg : colors.headerBg, paddingTop: Math.max(insets.top + 10, 30) }]}>
+            <View style={[styles.header, { backgroundColor: isDarkMode ? colors.cardBg : colors.headerBg, paddingTop: Math.max(insets.top + 4, 12) }]}>
                 <Text style={styles.headerTitle}>{familyData?.nome || 'Orçamento Familiar'}</Text>
                 <View style={styles.seletorMes}>
                     <TouchableOpacity
@@ -589,7 +589,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: { padding: 30, paddingTop: 30, alignItems: 'center' },
+    header: { paddingHorizontal: 20, paddingBottom: 20, alignItems: 'center' },
     headerTitle: { color: '#93C5FD', fontSize: 14, fontWeight: '600', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 },
     seletorMes: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
     botaoMes: { padding: 6 },

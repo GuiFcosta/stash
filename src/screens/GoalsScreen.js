@@ -213,7 +213,7 @@ export default function GoalsScreen() {
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={[styles.header, { paddingTop: Math.max(insets.top + 10, 30) }]}>
+            <View style={[styles.header, { paddingTop: Math.max(insets.top + 4, 12) }]}>
                 <Text style={[styles.headerTitle, { color: colors.textDark }]}>Objetivos</Text>
             </View>
 
@@ -509,7 +509,7 @@ export default function GoalsScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: { paddingHorizontal: 24, paddingBottom: 16, alignItems: 'center' },
+    header: { paddingHorizontal: 24, paddingBottom: 10, alignItems: 'center' },
     headerTitle: { fontSize: 28,  fontFamily: 'Inter_800ExtraBold',},
     content: { padding: 20 },
     seccao: { marginBottom: 20 },

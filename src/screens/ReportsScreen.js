@@ -190,7 +190,7 @@ export default function ReportsScreen() {
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={[styles.header, { paddingTop: Math.max(insets.top + 10, 30) }]}>
+            <View style={[styles.header, { paddingTop: Math.max(insets.top + 4, 12) }]}>
                 <Text style={[styles.headerTitle, { color: colors.textDark }]}>Relatórios & Exportação</Text>
             </View>
 
@@ -248,7 +248,7 @@ export default function ReportsScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, },
-    header: { paddingHorizontal: 24, paddingBottom: 16, alignItems: 'center' },
+    header: { paddingHorizontal: 24, paddingBottom: 10, alignItems: 'center' },
     headerTitle: { fontSize: 28,  fontFamily: 'Inter_800ExtraBold',},
     scrollContent: { padding: 20, paddingBottom: 40, },
     chartCard: {

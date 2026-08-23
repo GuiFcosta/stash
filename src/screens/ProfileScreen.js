@@ -13,7 +13,8 @@ import {
     Alert,
     Switch,
     RefreshControl,
-    Share
+    Share,
+    Image
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -40,8 +41,14 @@ export default function ProfileScreen() {
         regenerateInviteCode,
         updateFamilyName,
         promoteToAdmin,
-        removeMember
+        removeMember,
+        updateUserProfile
     } = useAuth();
+
+    // Editar Perfil (Nome e Foto)
+    const [modalPerfilVisivel, setModalPerfilVisivel] = useState(false);
+    const [nomeInput, setNomeInput] = useState('');
+    const [fotoInput, setFotoInput] = useState('');
 
     // Renda Pessoal
     const [minhaRenda, setMinhaRenda] = useState('0');
@@ -264,6 +271,28 @@ export default function ProfileScreen() {
         Alert.alert("Sucesso", "Nome da família atualizado.");
     };
 
+    // 7. EDITAR PERFIL (NOME E FOTO)
+    const abrirModalPerfil = () => {
+        setNomeInput(userProfile?.nome || user?.displayName || '');
+        setFotoInput(userProfile?.fotoUrl || user?.photoURL || '');
+        setModalPerfilVisivel(true);
+    };
+
+    const guardarPerfil = async () => {
+        if (!nomeInput.trim()) {
+            Alert.alert("Aviso", "O nome de utilizador não pode estar vazio.");
+            return;
+        }
+        const sucesso = await updateUserProfile({
+            nome: nomeInput.trim(),
+            fotoUrl: fotoInput.trim()
+        });
+        if (sucesso) {
+            setModalPerfilVisivel(false);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+    };
+
     const MenuItem = ({ icone, titulo, subtitulo, corIcone = colors.textMuted, acao, rightElement }) => (
         <TouchableOpacity
             style={[styles.menuItem, { borderBottomColor: colors.border }]}
@@ -287,7 +316,7 @@ export default function ProfileScreen() {
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={[styles.header, { paddingTop: Math.max(insets.top + 10, 30) }]}>
+            <View style={[styles.header, { paddingTop: Math.max(insets.top + 4, 12) }]}>
                 <Text style={[styles.headerTitle, { color: colors.textDark }]}>O Meu Perfil</Text>
             </View>
 
@@ -304,15 +333,34 @@ export default function ProfileScreen() {
             >
                 {/* CARTÃO DE PERFIL E FAMÍLIA */}
                 <View style={[styles.profileCard, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
-                    <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-                        <Text style={styles.avatarText}>
-                            {(userProfile?.nome || user?.displayName || 'EU').slice(0, 2).toUpperCase()}
-                        </Text>
-                    </View>
+                    <TouchableOpacity activeOpacity={0.8} onPress={abrirModalPerfil} style={{ position: 'relative' }}>
+                        {userProfile?.fotoUrl && (userProfile.fotoUrl.startsWith('http://') || userProfile.fotoUrl.startsWith('https://')) ? (
+                            <Image source={{ uri: userProfile.fotoUrl }} style={styles.avatarImage} />
+                        ) : userProfile?.fotoUrl && userProfile.fotoUrl.length <= 4 ? (
+                            <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+                                <Text style={{ fontSize: 26 }}>{userProfile.fotoUrl}</Text>
+                            </View>
+                        ) : (
+                            <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+                                <Text style={styles.avatarText}>
+                                    {(userProfile?.nome || user?.displayName || 'EU').slice(0, 2).toUpperCase()}
+                                </Text>
+                            </View>
+                        )}
+                        <View style={[styles.btnEditarAvatar, { backgroundColor: colors.primaryLight }]}>
+                            <Ionicons name="camera" size={11} color="#FFF" />
+                        </View>
+                    </TouchableOpacity>
+
                     <View style={styles.profileInfo}>
-                        <Text style={[styles.profileName, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>
-                            {userProfile?.nome || user?.displayName || 'Utilizador'}
-                        </Text>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Text style={[styles.profileName, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>
+                                {userProfile?.nome || user?.displayName || 'Utilizador'}
+                            </Text>
+                            <TouchableOpacity onPress={abrirModalPerfil} style={{ padding: 4 }}>
+                                <Ionicons name="create-outline" size={20} color={colors.primaryLight} />
+                            </TouchableOpacity>
+                        </View>
                         <Text style={[styles.profileEmail, { color: colors.textLight, fontFamily: 'Inter_400Regular' }]}>
                             {user?.email}
                         </Text>
@@ -421,9 +469,16 @@ export default function ProfileScreen() {
 
                 {/* APARÊNCIA E CONTA */}
                 <Text style={[styles.sectionTitle, { color: colors.textDisabled, fontFamily: 'Inter_700Bold' }]}>
-                    Aparência & Sessão
+                    Perfil, Aparência & Sessão
                 </Text>
                 <View style={[styles.menuGroup, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+                    <MenuItem
+                        icone="person-outline"
+                        titulo="Editar o meu Perfil"
+                        subtitulo="Alterar nome e foto de perfil"
+                        corIcone={colors.primaryLight}
+                        acao={abrirModalPerfil}
+                    />
                     <MenuItem
                         icone="moon-outline"
                         titulo="Modo Escuro"
@@ -709,14 +764,89 @@ export default function ProfileScreen() {
                 </KeyboardAvoidingView>
             </Modal>
 
+            {/* 6. MODAL DE EDIÇÃO DE PERFIL */}
+            <Modal animationType="fade" transparent={true} visible={modalPerfilVisivel} onRequestClose={() => setModalPerfilVisivel(false)}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
+                    <View style={[styles.modalContent, { backgroundColor: colors.modalContent, maxHeight: '85%' }]}>
+                        <View style={styles.modalHeader}>
+                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>Editar Perfil</Text>
+                            <TouchableOpacity onPress={() => setModalPerfilVisivel(false)}>
+                                <Ionicons name="close" size={28} color={colors.textLight} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                            {/* Preview do Avatar */}
+                            <View style={{ alignItems: 'center', marginVertical: 15 }}>
+                                {fotoInput && (fotoInput.startsWith('http://') || fotoInput.startsWith('https://')) ? (
+                                    <Image source={{ uri: fotoInput }} style={{ width: 80, height: 80, borderRadius: 40 }} />
+                                ) : fotoInput && fotoInput.length <= 4 ? (
+                                    <View style={[styles.avatar, { width: 80, height: 80, borderRadius: 40, backgroundColor: colors.primary, marginRight: 0 }]}>
+                                        <Text style={{ fontSize: 36 }}>{fotoInput}</Text>
+                                    </View>
+                                ) : (
+                                    <View style={[styles.avatar, { width: 80, height: 80, borderRadius: 40, backgroundColor: colors.primary, marginRight: 0 }]}>
+                                        <Text style={{ color: '#FFFFFF', fontSize: 28, fontWeight: 'bold' }}>
+                                            {(nomeInput || 'EU').slice(0, 2).toUpperCase()}
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+
+                            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Nome de Utilizador</Text>
+                            <TextInput
+                                style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'Inter_600SemiBold' }]}
+                                placeholder="O teu nome"
+                                placeholderTextColor={colors.textDisabled}
+                                value={nomeInput}
+                                onChangeText={setNomeInput}
+                            />
+
+                            <Text style={[styles.inputLabel, { color: colors.textMuted, marginTop: 5 }]}>Escolher Avatar Pré-definido</Text>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 15, justifyContent: 'center' }}>
+                                {['👤', '🦊', '🦁', '🚀', '💎', '⚽', '🎨', '🎧', '🌟', '👑', '🐱', '🐶'].map((emoji) => (
+                                    <TouchableOpacity
+                                        key={emoji}
+                                        style={[
+                                            styles.avatarOption,
+                                            { backgroundColor: colors.inputBg, borderColor: fotoInput === emoji ? colors.primaryLight : 'transparent' }
+                                        ]}
+                                        onPress={() => setFotoInput(emoji)}
+                                    >
+                                        <Text style={{ fontSize: 24 }}>{emoji}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Ou URL de Foto (opcional)</Text>
+                            <TextInput
+                                style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontSize: 13 }]}
+                                placeholder="https://exemplo.com/foto.jpg"
+                                placeholderTextColor={colors.textDisabled}
+                                autoCapitalize="none"
+                                value={fotoInput.startsWith('http') ? fotoInput : ''}
+                                onChangeText={setFotoInput}
+                            />
+                        </ScrollView>
+
+                        <TouchableOpacity style={[styles.btnGuardar, { backgroundColor: colors.primary }]} onPress={guardarPerfil}>
+                            <Text style={styles.btnGuardarTexto}>Guardar Perfil</Text>
+                        </TouchableOpacity>
+                    </View>
+                </KeyboardAvoidingView>
+            </Modal>
+
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: { paddingHorizontal: 24, paddingBottom: 16, alignItems: 'center' },
+    header: { paddingHorizontal: 24, paddingBottom: 10, alignItems: 'center' },
     headerTitle: { fontSize: 28,  fontFamily: 'Inter_800ExtraBold',},
+    avatarImage: { width: 56, height: 56, borderRadius: 28, marginRight: 15 },
+    btnEditarAvatar: { position: 'absolute', bottom: -2, right: 10, width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#FFF' },
+    avatarOption: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', borderWidth: 2 },
     content: { padding: 20 },
     profileCard: { padding: 20, borderRadius: 16, flexDirection: 'row', alignItems: 'center', marginBottom: 25, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
     avatar: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', marginRight: 15 },

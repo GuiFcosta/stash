@@ -406,6 +406,50 @@ export function AuthProvider({ children }) {
         }
     };
 
+    // 9. ATUALIZAR PERFIL DO UTILIZADOR (NOME E FOTO)
+    const updateUserProfile = async ({ nome, fotoUrl }) => {
+        if (!user) return false;
+        try {
+            setLoading(true);
+            const nomeFormatado = (nome || '').trim() || userProfile?.nome || user?.displayName || 'Utilizador';
+            const fotoFormatada = (fotoUrl || '').trim();
+
+            // 1. Atualizar Firebase Auth
+            await updateProfile(auth.currentUser, {
+                displayName: nomeFormatado,
+                photoURL: fotoFormatada || null
+            });
+
+            // 2. Atualizar documento users/{uid}
+            await setDoc(doc(db, 'users', user.uid), {
+                nome: nomeFormatado,
+                fotoUrl: fotoFormatada
+            }, { merge: true });
+
+            // 3. Atualizar membro na família se pertencer a uma
+            if (familyData?.id) {
+                const membrosAtualizados = (familyData.membros || []).map(m => {
+                    if (m.uid === user.uid) {
+                        return { ...m, nome: nomeFormatado, fotoUrl: fotoFormatada };
+                    }
+                    return m;
+                });
+                await updateDoc(doc(db, 'familias', familyData.id), {
+                    membros: membrosAtualizados
+                });
+            }
+
+            setLoading(false);
+            Alert.alert("Sucesso", "Perfil atualizado com sucesso!");
+            return true;
+        } catch (error) {
+            setLoading(false);
+            console.error("Erro ao atualizar perfil:", error);
+            Alert.alert("Erro", "Não foi possível atualizar o perfil.");
+            return false;
+        }
+    };
+
     const currentMember = familyData?.membros?.find(m => m.uid === user?.uid);
     const isAdmin = currentMember?.role === 'admin';
 
@@ -425,6 +469,7 @@ export function AuthProvider({ children }) {
             updateFamilyName,
             promoteToAdmin,
             removeMember,
+            updateUserProfile,
         }}>
             {children}
         </AuthContext.Provider>
