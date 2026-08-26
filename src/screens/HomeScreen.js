@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Alert, RefreshControl } from 'react-native';
+import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Alert, RefreshControl, LayoutAnimation, UIManager } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
@@ -47,6 +47,7 @@ export default function HomeScreen() {
     const [gastoEmEdicao, setGastoEmEdicao] = useState(null);
 
     const [gastosVariaveis, setGastosVariaveis] = useState([]);
+    const [despesasFixasExpandidas, setDespesasFixasExpandidas] = useState(true);
 
     // Estados para Pesquisa e Filtros
     const [textoPesquisa, setTextoPesquisa] = useState('');
@@ -365,41 +366,91 @@ export default function HomeScreen() {
                     />
                 }
             >
-                {/* SECÇÃO DAS DESPESAS FIXAS */}
+                {/* SECÇÃO DAS DESPESAS FIXAS (COM ACORDEÃO) */}
                 <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>Despesas Mensais</Text>
-                    {despesasEssenciais.map((item) => {
-                        const estaPaga = despesaFoiPagaNoMes(item);
-                        const quemPagou = obterQuemPagouNoMes(item);
-                        return (
-                            <TouchableOpacity
-                                key={item.id}
-                                style={[
-                                    styles.essencialCard,
-                                    { backgroundColor: colors.cardBg, borderColor: colors.border },
-                                    estaPaga && styles.essencialCardPago
-                                ]}
-                                activeOpacity={0.7}
-                                onPress={() => alternarPagamentoFixo(item.id, estaPaga)}
-                            >
-                                <View style={styles.essencialInfoRow}>
-                                    <Ionicons
-                                        name={estaPaga ? "checkmark-circle" : "ellipse-outline"}
-                                        size={26}
-                                        color={estaPaga ? colors.success : colors.textDisabled}
-                                        style={{ marginRight: 12 }}
-                                    />
-                                    <View>
-                                        <Text style={[styles.lojaText, { color: colors.textDark, fontFamily: 'Inter_700Bold' }, estaPaga && styles.textoRiscado]}>{item.nome}</Text>
-                                        <Text style={[styles.detalheText, { color: colors.textLight, fontFamily: 'Inter_400Regular' }]}>
-                                            {estaPaga ? (quemPagou ? `Pago por ${quemPagou}` : "Pago") : "Pendente"}
-                                        </Text>
-                                    </View>
+                    <TouchableOpacity
+                        style={styles.sectionHeaderClickable}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            if (Platform.OS !== 'web') {
+                                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                            }
+                            setDespesasFixasExpandidas(!despesasFixasExpandidas);
+                        }}
+                    >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Text style={[styles.sectionTitle, { color: colors.textDark, fontFamily: 'Inter_700Bold', marginBottom: 0 }]}>
+                                Despesas Mensais
+                            </Text>
+                            {despesasEssenciais.length > 0 && (
+                                <View style={[
+                                    styles.badgeContagemFixas,
+                                    { backgroundColor: hexToRgba(despesasEssenciais.filter(item => despesaFoiPagaNoMes(item)).length === despesasEssenciais.length ? colors.success : colors.primaryLight, 0.15) }
+                                ]}>
+                                    <Text style={[
+                                        styles.badgeContagemFixasTexto,
+                                        { color: despesasEssenciais.filter(item => despesaFoiPagaNoMes(item)).length === despesasEssenciais.length ? colors.success : colors.primaryLight }
+                                    ]}>
+                                        {despesasEssenciais.filter(item => despesaFoiPagaNoMes(item)).length}/{despesasEssenciais.length}
+                                    </Text>
                                 </View>
-                                <Text style={[styles.valorFixo, { color: colors.textMuted, fontFamily: 'Inter_700Bold' }, estaPaga && styles.textoRiscado]}>-{item.valor.toFixed(2)} €</Text>
-                            </TouchableOpacity>
-                        );
-                    })}
+                            )}
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={{ color: colors.textLight, fontSize: 13, fontFamily: 'Inter_600SemiBold' }}>
+                                {totalEssenciais.toFixed(0)}€
+                            </Text>
+                            <Ionicons
+                                name={despesasFixasExpandidas ? "chevron-up" : "chevron-down"}
+                                size={20}
+                                color={colors.textLight}
+                            />
+                        </View>
+                    </TouchableOpacity>
+
+                    {despesasFixasExpandidas && (
+                        <View style={{ marginTop: 12 }}>
+                            {despesasEssenciais.length === 0 ? (
+                                <Text style={{ color: colors.textLight, fontSize: 13, textAlign: 'center', paddingVertical: 12, fontFamily: 'Inter_400Regular' }}>
+                                    Nenhuma despesa mensal configurada.
+                                </Text>
+                            ) : (
+                                despesasEssenciais.map((item) => {
+                                    const estaPaga = despesaFoiPagaNoMes(item);
+                                    const quemPagou = obterQuemPagouNoMes(item);
+                                    return (
+                                        <TouchableOpacity
+                                            key={item.id}
+                                            style={[
+                                                styles.essencialCard,
+                                                { backgroundColor: colors.cardBg, borderColor: colors.border },
+                                                estaPaga && styles.essencialCardPago
+                                            ]}
+                                            activeOpacity={0.7}
+                                            onPress={() => alternarPagamentoFixo(item.id, estaPaga)}
+                                        >
+                                            <View style={styles.essencialInfoRow}>
+                                                <Ionicons
+                                                    name={estaPaga ? "checkmark-circle" : "ellipse-outline"}
+                                                    size={26}
+                                                    color={estaPaga ? colors.success : colors.textDisabled}
+                                                    style={{ marginRight: 12 }}
+                                                />
+                                                <View>
+                                                    <Text style={[styles.lojaText, { color: colors.textDark, fontFamily: 'Inter_700Bold' }, estaPaga && styles.textoRiscado]}>{item.nome}</Text>
+                                                    <Text style={[styles.detalheText, { color: colors.textLight, fontFamily: 'Inter_400Regular' }]}>
+                                                        {item.diaVencimento ? `Dia ${item.diaVencimento} • ` : ''}{estaPaga ? (quemPagou ? `Pago por ${quemPagou}` : "Pago") : "Pendente"}
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                            <Text style={[styles.valorFixo, { color: colors.textMuted, fontFamily: 'Inter_700Bold' }, estaPaga && styles.textoRiscado]}>-{item.valor.toFixed(2)} €</Text>
+                                        </TouchableOpacity>
+                                    );
+                                })
+                            )}
+                        </View>
+                    )}
                 </View>
 
                 {/* SECÇÃO DOS GASTOS VARIÁVEIS */}
@@ -602,6 +653,9 @@ const styles = StyleSheet.create({
     scrollContainer: { flex: 1 },
     section: { padding: 20, paddingBottom: 0 },
     sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
+    sectionHeaderClickable: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+    badgeContagemFixas: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+    badgeContagemFixasTexto: { fontSize: 11, fontWeight: 'bold', fontFamily: 'Inter_600SemiBold' },
     graficoCard: { borderRadius: 16, padding: 20, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
 
     essencialCard: { padding: 16, borderRadius: 16, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 5, elevation: 1 },

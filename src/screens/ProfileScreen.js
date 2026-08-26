@@ -1,21 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-    StyleSheet,
-    Text,
-    View,
-    SafeAreaView,
-    ScrollView,
-    TouchableOpacity,
-    Modal,
-    TextInput,
-    KeyboardAvoidingView,
-    Platform,
-    Alert,
-    Switch,
-    RefreshControl,
-    Share,
-    Image
-} from 'react-native';
+import {StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Alert, Switch, RefreshControl, Share, Image} from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
@@ -41,6 +25,7 @@ export default function ProfileScreen() {
         regenerateInviteCode,
         updateFamilyName,
         promoteToAdmin,
+        demoteFromAdmin,
         removeMember,
         updateUserProfile
     } = useAuth();
@@ -63,6 +48,7 @@ export default function ProfileScreen() {
     // Despesas Fixas
     const [listaFixas, setListaFixas] = useState([]);
     const [modalFixasVisivel, setModalFixasVisivel] = useState(false);
+    const [categoriaFixaSelecionada, setCategoriaFixaSelecionada] = useState(CATEGORIAS_DE_GASTO[0] || 'Casa');
 
     // Limites de Orçamento
     const [rascunhoLimites, setRascunhoLimites] = useState({});
@@ -147,45 +133,63 @@ export default function ProfileScreen() {
         const fixasAtuais = familyData?.despesasFixas || [];
         const copia = fixasAtuais.map(item => ({
             ...item,
-            valorString: (item.valor || 0).toString(),
-            categoria: item.categoria || 'Casa'
+            id: item.id || Date.now().toString() + Math.random(),
+            valorString: (item.valor !== undefined && item.valor !== null ? item.valor : 0).toString(),
+            categoria: item.categoria || 'Casa',
+            diaVencimento: (item.diaVencimento || '').toString(),
         }));
         setListaFixas(copia);
+        setCategoriaFixaSelecionada(CATEGORIAS_DE_GASTO[0] || 'Casa');
         setModalFixasVisivel(true);
     };
 
-    const atualizarItemFixa = (index, campo, novoTexto) => {
-        const novaLista = [...listaFixas];
-        novaLista[index][campo] = novoTexto;
+    const atualizarItemFixa = (id, campo, novoTexto) => {
+        const novaLista = listaFixas.map(item => {
+            if (item.id === id) {
+                return { ...item, [campo]: novoTexto };
+            }
+            return item;
+        });
         setListaFixas(novaLista);
     };
 
-    const adicionarItemFixa = () => {
-        const novoItem = { id: Date.now().toString(), nome: '', valorString: '', tipo: 'Fixo', categoria: 'Casa' };
+    const adicionarItemFixa = (cat = categoriaFixaSelecionada) => {
+        const novoItem = {
+            id: Date.now().toString() + Math.random().toString().slice(2, 6),
+            nome: '',
+            valorString: '',
+            tipo: 'Fixo',
+            categoria: cat || 'Casa',
+            diaVencimento: '',
+        };
         setListaFixas([...listaFixas, novoItem]);
     };
 
-    const removerItemFixa = (index) => {
-        const novaLista = [...listaFixas];
-        novaLista.splice(index, 1);
-        setListaFixas(novaLista);
+    const removerItemFixa = (id) => {
+        setListaFixas(listaFixas.filter(item => item.id !== id));
     };
 
     const guardarFixas = async () => {
         if (!familyData) return;
         try {
-            const listaLimpa = listaFixas.map(item => ({
-                id: item.id,
-                nome: item.nome || 'Sem Nome',
-                tipo: item.tipo || 'Fixo',
-                categoria: item.categoria || 'Casa',
-                valor: converterEmNumero(item.valorString),
-                pago: Boolean(item.pago),
-                pagamentos: item.pagamentos || {}
-            }));
+            const listaLimpa = listaFixas
+                .filter(item => (item.nome && item.nome.trim() !== '') || (item.valorString && item.valorString.trim() !== ''))
+                .map(item => {
+                    const diaNum = parseInt(item.diaVencimento, 10);
+                    return {
+                        id: String(item.id),
+                        nome: item.nome?.trim() || 'Sem Nome',
+                        tipo: item.tipo || 'Fixo',
+                        categoria: item.categoria || 'Casa',
+                        valor: converterEmNumero(item.valorString) || 0,
+                        diaVencimento: (!isNaN(diaNum) && diaNum >= 1 && diaNum <= 31) ? diaNum : (item.diaVencimento?.trim() || null),
+                        pago: Boolean(item.pago),
+                        pagamentos: item.pagamentos || {}
+                    };
+                });
 
             if (listaLimpa.some(item => !Number.isFinite(item.valor) || item.valor < 0)) {
-                Alert.alert("Aviso", "Cada conta deve ter um valor válido.");
+                Alert.alert("Aviso", "Cada conta deve ter um valor numérico válido.");
                 return;
             }
 
@@ -567,12 +571,21 @@ export default function ProfileScreen() {
                             {(familyData?.membros || []).map((membro) => {
                                 const eProprio = membro.uid === user?.uid;
                                 const eAdminMembro = membro.role === 'admin';
+                                const foto = membro.fotoUrl || (eProprio ? userProfile?.fotoUrl : null);
 
                                 return (
                                     <View key={membro.uid} style={[styles.linhaMembro, { borderBottomColor: colors.border }]}>
-                                        <View style={[styles.miniAvatar, { backgroundColor: colors.primaryLight }]}>
-                                            <Text style={styles.miniAvatarText}>{membro.nome.slice(0, 2).toUpperCase()}</Text>
-                                        </View>
+                                        {foto && (foto.startsWith('http://') || foto.startsWith('https://')) ? (
+                                            <Image source={{ uri: foto }} style={styles.miniAvatar} />
+                                        ) : foto && foto.length <= 4 ? (
+                                            <View style={[styles.miniAvatar, { backgroundColor: colors.primaryLight, justifyContent: 'center', alignItems: 'center' }]}>
+                                                <Text style={{ fontSize: 18 }}>{foto}</Text>
+                                            </View>
+                                        ) : (
+                                            <View style={[styles.miniAvatar, { backgroundColor: colors.primaryLight }]}>
+                                                <Text style={styles.miniAvatarText}>{(membro.nome || 'MB').slice(0, 2).toUpperCase()}</Text>
+                                            </View>
+                                        )}
                                         <View style={{ flex: 1 }}>
                                             <Text style={[styles.membroNome, { color: colors.textDark }]}>
                                                 {membro.nome} {eProprio ? '(Tu)' : ''}
@@ -588,10 +601,29 @@ export default function ProfileScreen() {
 
                                             {/* Ações de Administrador */}
                                             {isAdmin && !eProprio && (
-                                                <View style={{ flexDirection: 'row', gap: 6 }}>
-                                                    {!eAdminMembro && (
-                                                        <TouchableOpacity onPress={() => promoteToAdmin(membro.uid)}>
+                                                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                                                    {!eAdminMembro ? (
+                                                        <TouchableOpacity
+                                                            onPress={() => promoteToAdmin(membro.uid)}
+                                                            accessibilityLabel={`Promover ${membro.nome} a admin`}
+                                                        >
                                                             <Ionicons name="shield-checkmark-outline" size={18} color={colors.primaryLight} />
+                                                        </TouchableOpacity>
+                                                    ) : (
+                                                        <TouchableOpacity
+                                                            onPress={() => {
+                                                                Alert.alert(
+                                                                    "Remover Cargo de Admin",
+                                                                    `Remover privilégios de administrador de ${membro.nome}?`,
+                                                                    [
+                                                                        { text: "Cancelar", style: "cancel" },
+                                                                        { text: "Remover Admin", style: "destructive", onPress: () => demoteFromAdmin(membro.uid) }
+                                                                    ]
+                                                                );
+                                                            }}
+                                                            accessibilityLabel={`Remover admin de ${membro.nome}`}
+                                                        >
+                                                            <Ionicons name="shield-outline" size={18} color={colors.warning} />
                                                         </TouchableOpacity>
                                                     )}
                                                     <TouchableOpacity onPress={() => {
@@ -669,61 +701,126 @@ export default function ProfileScreen() {
                 </KeyboardAvoidingView>
             </Modal>
 
-            {/* 4. MODAL DE DESPESAS FIXAS */}
+            {/* 4. MODAL DE DESPESAS FIXAS DIVIDIDAS POR CATEGORIA */}
             <Modal animationType="fade" transparent={true} visible={modalFixasVisivel} onRequestClose={() => setModalFixasVisivel(false)}>
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
-                    <View style={[styles.modalContent, { backgroundColor: colors.modalContent, maxHeight: '80%' }]}>
+                    <View style={[styles.modalContent, { backgroundColor: colors.modalContent, maxHeight: '88%' }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>Despesas Fixas</Text>
+                            <View>
+                                <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>Despesas Mensais</Text>
+                                <Text style={{ fontSize: 12, color: colors.textLight, fontFamily: 'Inter_400Regular' }}>
+                                    Total: {listaFixas.reduce((acc, i) => acc + (converterEmNumero(i.valorString) || 0), 0).toFixed(2)} € / mês
+                                </Text>
+                            </View>
                             <TouchableOpacity onPress={() => setModalFixasVisivel(false)}>
                                 <Ionicons name="close" size={28} color={colors.textLight} />
                             </TouchableOpacity>
                         </View>
-                        <ScrollView showsVerticalScrollIndicator={false} style={{ marginBottom: 15 }}>
-                            {listaFixas.map((item, index) => (
-                                <View key={item.id} style={[styles.cardContaFixaEdit, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-                                    <View style={styles.linhaDespesa}>
-                                        <TextInput
-                                            style={[styles.inputNormal, { backgroundColor: colors.cardBg, color: colors.textDark, flex: 2, marginBottom: 0, marginRight: 10 }]}
-                                            placeholder="Nome (ex: Luz)"
-                                            placeholderTextColor={colors.textDisabled}
-                                            value={item.nome}
-                                            onChangeText={(texto) => atualizarItemFixa(index, 'nome', texto)}
-                                        />
-                                        <TextInput
-                                            style={[styles.inputNormal, { backgroundColor: colors.cardBg, color: colors.textDark, flex: 1, marginBottom: 0, textAlign: 'center' }]}
-                                            placeholder="0,00 €"
-                                            placeholderTextColor={colors.textDisabled}
-                                            keyboardType="decimal-pad"
-                                            value={item.valorString}
-                                            onChangeText={(texto) => atualizarItemFixa(index, 'valorString', texto)}
-                                        />
-                                        <TouchableOpacity style={styles.btnRemover} onPress={() => removerItemFixa(index)}>
-                                            <Ionicons name="trash-outline" size={22} color={colors.danger} />
-                                        </TouchableOpacity>
-                                    </View>
 
-                                    <View style={[styles.pickerContainer, { backgroundColor: colors.cardBg, marginTop: 8, marginBottom: 0 }]}>
-                                        <Picker
-                                            selectedValue={item.categoria || 'Casa'}
-                                            onValueChange={(cat) => atualizarItemFixa(index, 'categoria', cat)}
-                                            style={{ color: colors.textDark }}
-                                            itemStyle={Platform.OS === 'ios' ? { height: 100, fontSize: 14, color: colors.textDark } : {}}
+                        {/* SELETOR DE CATEGORIAS (CHIPS) */}
+                        <View style={{ marginBottom: 12 }}>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+                                {CATEGORIAS_DE_GASTO.map((cat) => {
+                                    const countNaCategoria = listaFixas.filter(i => (i.categoria || 'Casa') === cat).length;
+                                    const selecionada = categoriaFixaSelecionada === cat;
+                                    return (
+                                        <TouchableOpacity
+                                            key={cat}
+                                            style={[
+                                                styles.chipCategoriaFixa,
+                                                { backgroundColor: colors.inputBg, borderColor: colors.border },
+                                                selecionada && { backgroundColor: hexToRgba(colors.primaryLight, 0.18), borderColor: colors.primaryLight }
+                                            ]}
+                                            onPress={() => {
+                                                Haptics.selectionAsync();
+                                                setCategoriaFixaSelecionada(cat);
+                                            }}
                                         >
-                                            {CATEGORIAS_DE_GASTO.map((cat) => (
-                                                <Picker.Item key={cat} label={cat} value={cat} color={colors.textDark} />
-                                            ))}
-                                        </Picker>
+                                            <Text style={[
+                                                styles.chipCategoriaFixaTexto,
+                                                { color: colors.textMuted, fontFamily: 'Inter_600SemiBold' },
+                                                selecionada && { color: colors.primaryLight, fontWeight: 'bold' }
+                                            ]}>
+                                                {cat} {countNaCategoria > 0 ? `(${countNaCategoria})` : ''}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </ScrollView>
+                        </View>
+
+                        {/* LISTAGEM DE DESPESAS DA CATEGORIA SELECIONADA */}
+                        <ScrollView showsVerticalScrollIndicator={false} style={{ marginBottom: 15 }}>
+                            {(() => {
+                                const despesasDaCategoria = listaFixas.filter(i => (i.categoria || 'Casa') === categoriaFixaSelecionada);
+                                if (despesasDaCategoria.length === 0) {
+                                    return (
+                                        <View style={{ alignItems: 'center', paddingVertical: 25, gap: 8 }}>
+                                            <Ionicons name="receipt-outline" size={36} color={colors.textDisabled} />
+                                            <Text style={{ color: colors.textLight, fontSize: 13, textAlign: 'center', fontFamily: 'Inter_400Regular' }}>
+                                                Nenhuma conta configurada em {categoriaFixaSelecionada}.
+                                            </Text>
+                                        </View>
+                                    );
+                                }
+
+                                return despesasDaCategoria.map((item) => (
+                                    <View key={item.id} style={[styles.cardContaFixaEdit, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                                        <View style={styles.linhaDespesa}>
+                                            <View style={{ flex: 2, marginRight: 8 }}>
+                                                <Text style={[styles.microLabel, { color: colors.textMuted }]}>Nome</Text>
+                                                <TextInput
+                                                    style={[styles.inputNormal, { backgroundColor: colors.cardBg, color: colors.textDark, marginBottom: 0, fontSize: 14 }]}
+                                                    placeholder="Ex: Eletricidade"
+                                                    placeholderTextColor={colors.textDisabled}
+                                                    value={item.nome}
+                                                    onChangeText={(texto) => atualizarItemFixa(item.id, 'nome', texto)}
+                                                />
+                                            </View>
+                                            <View style={{ flex: 1.2, marginRight: 8 }}>
+                                                <Text style={[styles.microLabel, { color: colors.textMuted }]}>Valor (€)</Text>
+                                                <TextInput
+                                                    style={[styles.inputNormal, { backgroundColor: colors.cardBg, color: colors.textDark, marginBottom: 0, textAlign: 'center', fontSize: 14 }]}
+                                                    placeholder="0.00"
+                                                    placeholderTextColor={colors.textDisabled}
+                                                    keyboardType="decimal-pad"
+                                                    value={item.valorString}
+                                                    onChangeText={(texto) => atualizarItemFixa(item.id, 'valorString', texto)}
+                                                />
+                                            </View>
+                                            <View style={{ width: 55, marginRight: 4 }}>
+                                                <Text style={[styles.microLabel, { color: colors.textMuted }]}>Dia</Text>
+                                                <TextInput
+                                                    style={[styles.inputNormal, { backgroundColor: colors.cardBg, color: colors.textDark, marginBottom: 0, textAlign: 'center', fontSize: 14 }]}
+                                                    placeholder="Dia"
+                                                    placeholderTextColor={colors.textDisabled}
+                                                    keyboardType="number-pad"
+                                                    maxLength={2}
+                                                    value={item.diaVencimento?.toString() || ''}
+                                                    onChangeText={(texto) => atualizarItemFixa(item.id, 'diaVencimento', texto)}
+                                                />
+                                            </View>
+                                            <TouchableOpacity style={[styles.btnRemover, { marginTop: 16 }]} onPress={() => removerItemFixa(item.id)}>
+                                                <Ionicons name="trash-outline" size={20} color={colors.danger} />
+                                            </TouchableOpacity>
+                                        </View>
                                     </View>
-                                </View>
-                            ))}
-                            <TouchableOpacity style={[styles.btnAdicionarNova, { borderColor: colors.primaryLight, backgroundColor: `${colors.primaryLight}15` }]} onPress={adicionarItemFixa}>
-                                <Ionicons name="add-circle-outline" size={20} color={colors.primaryLight} style={{ marginRight: 5 }} />
-                                <Text style={[styles.txtAdicionarNova, { color: colors.primaryLight }]}>Adicionar Conta</Text>
+                                ));
+                            })()}
+
+                            <TouchableOpacity
+                                style={[styles.btnAdicionarNova, { borderColor: colors.primaryLight, backgroundColor: hexToRgba(colors.primaryLight, 0.1) }]}
+                                onPress={() => adicionarItemFixa(categoriaFixaSelecionada)}
+                            >
+                                <Ionicons name="add-circle-outline" size={20} color={colors.primaryLight} style={{ marginRight: 6 }} />
+                                <Text style={[styles.txtAdicionarNova, { color: colors.primaryLight, fontFamily: 'Inter_700Bold' }]}>
+                                    Adicionar Conta em {categoriaFixaSelecionada}
+                                </Text>
                             </TouchableOpacity>
                         </ScrollView>
+
                         <TouchableOpacity style={[styles.btnGuardar, { backgroundColor: colors.primary }]} onPress={guardarFixas}>
-                            <Text style={styles.btnGuardarTexto}>Guardar Tudo</Text>
+                            <Text style={styles.btnGuardarTexto}>Guardar Despesas</Text>
                         </TouchableOpacity>
                     </View>
                 </KeyboardAvoidingView>
@@ -891,6 +988,9 @@ const styles = StyleSheet.create({
     membroSub: { fontSize: 12, marginTop: 2 },
 
     linhaDespesa: { flexDirection: 'row', alignItems: 'center' },
+    microLabel: { fontSize: 11, fontWeight: '600', marginBottom: 4 },
+    chipCategoriaFixa: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+    chipCategoriaFixaTexto: { fontSize: 13 },
     cardContaFixaEdit: { padding: 12, borderRadius: 14, marginBottom: 12, borderWidth: 1 },
     pickerContainer: { borderRadius: 12, overflow: 'hidden', paddingHorizontal: Platform.OS === 'android' ? 5 : 0 },
     btnRemover: { padding: 10, marginLeft: 5 },

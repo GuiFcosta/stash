@@ -363,6 +363,23 @@ export function AuthProvider({ children }) {
         }
     };
 
+    // 7.1 DESPROMOVER DE ADMIN (ADMIN)
+    const demoteFromAdmin = async (targetUid) => {
+        if (!familyData) return;
+        try {
+            const membrosAtualizados = familyData.membros.map(m => {
+                if (m.uid === targetUid) return { ...m, role: 'membro' };
+                return m;
+            });
+            await updateDoc(doc(db, 'familias', familyData.id), {
+                membros: membrosAtualizados
+            });
+            Alert.alert("Sucesso", "Cargo de Administrador removido!");
+        } catch (error) {
+            Alert.alert("Erro", "Erro ao remover cargo de administrador.");
+        }
+    };
+
     // 8. REMOVER MEMBRO DA FAMÍLIA
     const removeMember = async (targetUid) => {
         if (!familyData) return;
@@ -468,6 +485,7 @@ export function AuthProvider({ children }) {
             regenerateInviteCode,
             updateFamilyName,
             promoteToAdmin,
+            demoteFromAdmin,
             removeMember,
             updateUserProfile,
         }}>
