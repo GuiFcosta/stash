@@ -32,7 +32,7 @@ function MainTabs() {
           tabBarActiveTintColor: colors.primaryLight,
           tabBarInactiveTintColor: colors.textDisabled,
           tabBarLabelStyle: {
-            fontFamily: 'Inter_600SemiBold',
+            fontFamily: 'SpaceGrotesk_600SemiBold',
             fontSize: 11,
           },
           tabBarStyle: {

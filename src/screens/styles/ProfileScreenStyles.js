@@ -3,7 +3,7 @@ import { StyleSheet, Platform } from 'react-native';
 export const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { paddingHorizontal: 24, paddingBottom: 10, alignItems: 'center' },
-    headerTitle: { fontSize: 28,  fontFamily: 'Inter_800ExtraBold',},
+    headerTitle: { fontSize: 28,  fontFamily: 'SpaceGrotesk_700Bold',},
     avatarImage: { width: 56, height: 56, borderRadius: 28, marginRight: 15 },
     btnEditarAvatar: { position: 'absolute', bottom: -2, right: 10, width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#FFF' },
     avatarOption: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', borderWidth: 2 },

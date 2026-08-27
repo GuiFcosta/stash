@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Animated, StyleSheet } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
+import { skeletonStyles } from './styles/SkeletonLoaderStyles';
 
 /**
  * Componente de loading skeleton com animação de shimmer.
@@ -101,31 +102,4 @@ export function SkeletonHeader() {
     );
 }
 
-const skeletonStyles = StyleSheet.create({
-    card: {
-        padding: 16,
-        borderRadius: 16,
-        marginBottom: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 15,
-    },
-    info: {
-        flex: 1,
-    },
-    goalCard: {
-        padding: 20,
-        borderRadius: 16,
-        marginBottom: 16,
-    },
-    goalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    header: {
-        padding: 30,
-        paddingTop: 30,
-        alignItems: 'center',
-    },
-});
+

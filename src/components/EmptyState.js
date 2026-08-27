@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import { styles } from './styles/EmptyStateStyles';
 
 /**
  * Componente de estado vazio reutilizável.
@@ -26,33 +27,3 @@ export default function EmptyState({ icon = 'folder-open-outline', title, subtit
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        alignItems: 'center',
-        paddingVertical: 40,
-        paddingHorizontal: 20,
-    },
-    iconCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    title: {
-        fontSize: 16,
-        fontFamily: 'Inter_600SemiBold',
-        textAlign: 'center',
-        marginBottom: 6,
-    },
-    subtitle: {
-        fontSize: 14,
-        textAlign: 'center',
-        lineHeight: 20,
-    },
-    actionContainer: {
-        marginTop: 16,
-    },
-});

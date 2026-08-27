@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 export const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { paddingHorizontal: 24, paddingBottom: 10, alignItems: 'center' },
-    headerTitle: { fontSize: 28,  fontFamily: 'Inter_800ExtraBold',},
+    headerTitle: { fontSize: 28,  fontFamily: 'SpaceGrotesk_700Bold',},
     content: { padding: 20 },
 
     resumoCasalCard: { padding: 20, borderRadius: 16, marginBottom: 20, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },

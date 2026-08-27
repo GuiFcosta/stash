@@ -1,8 +1,9 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { useTheme } from '../context/ThemeContext';
 import { CATEGORY_COLORS } from '../theme/Colors';
+import { styles } from './styles/CategoryDonutChartStyles';
 const RAIO = 50;
 const CIRCUNFERENCIA = 2 * Math.PI * RAIO;
 
@@ -83,19 +84,3 @@ export default function CategoryDonutChart({ dados, limites = {} }) {
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    graficoContainer: { width: 150, height: 150, alignSelf: 'center', justifyContent: 'center', alignItems: 'center', marginBottom: 18 },
-    centroGrafico: { position: 'absolute', alignItems: 'center' },
-    total: { fontSize: 20, fontWeight: '700' },
-    totalLabel: { fontSize: 12 },
-    legenda: { gap: 12 },
-    blocoCategoria: { gap: 4 },
-    linhaLegenda: { flexDirection: 'row', alignItems: 'center' },
-    corLegenda: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
-    nomeCategoria: { flex: 1, fontSize: 14, fontWeight: '500' },
-    valorCategoria: { fontSize: 13, fontWeight: '600' },
-    barraFundo: { height: 6, borderRadius: 3, overflow: 'hidden', marginLeft: 18 },
-    barraProgresso: { height: '100%', borderRadius: 3 },
-    semDados: { fontStyle: 'italic', textAlign: 'center', paddingVertical: 20 },
-});
