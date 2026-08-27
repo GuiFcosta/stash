@@ -12,21 +12,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import EmptyState from '../components/EmptyState';
 import SkeletonLoader from '../components/SkeletonLoader';
-
-const despesaFoiPagaNoMes = (despesa, chaveMes) => {
-    const val = despesa.pagamentos?.[chaveMes];
-    if (typeof val === 'boolean') return val;
-    if (typeof val === 'object' && val !== null) return Boolean(val.pago);
-    return false;
-};
-
-const obterQuemPagouNoMes = (despesa, chaveMes) => {
-    const val = despesa.pagamentos?.[chaveMes];
-    if (typeof val === 'object' && val !== null && val.pago) {
-        return { quem: val.quem, quemUid: val.quemUid };
-    }
-    return null;
-};
+import {
+    calcularGastoTotal,
+    calcularTotalFixasPagas,
+    calcularTotalFixasPagasPorMembro,
+    agruparGastosPorCategoria,
+    despesaFixaFoiPagaNoMes,
+    obterQuemPagouFixoNoMes
+} from '../utils/calculations';
+import { formatarMoeda } from '../utils/formatters';
 
 export default function SummaryScreen() {
     const { colors } = useTheme();
@@ -83,15 +77,11 @@ export default function SummaryScreen() {
 
     // 1. CÁLCULO GERAL DO AGREGADO FAMILIAR (VARIÁVEIS + FIXAS PAGAS)
     const rendaTotalCasal = membros.reduce((soma, m) => soma + (Number(m.renda) || 0), 0);
-    const despesasFixasPagasNoMes = despesasFixas.filter(d => despesaFoiPagaNoMes(d, chaveMesSelecionado));
-    const totalFixasPagasCasal = despesasFixasPagasNoMes.reduce((soma, d) => soma + (Number(d.valor) || 0), 0);
-
-    const totalVariavelCasal = gastosVariaveis
-        .filter(item => (Number(item.valor) || 0) > 0)
-        .reduce((soma, item) => soma + Number(item.valor), 0);
-
+    const totalFixasPagasCasal = calcularTotalFixasPagas(despesasFixas, chaveMesSelecionado);
+    const totalVariavelCasal = calcularGastoTotal(gastosVariaveis.filter(item => (Number(item.valor) || 0) > 0));
     const totalGastoCasal = totalVariavelCasal + totalFixasPagasCasal;
     const pctGastaCasal = rendaTotalCasal > 0 ? Math.min((totalGastoCasal / rendaTotalCasal) * 100, 100) : 0;
+    const despesasFixasPagasNoMes = despesasFixas.filter(d => despesaFixaFoiPagaNoMes(d, chaveMesSelecionado));
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -115,21 +105,21 @@ export default function SummaryScreen() {
                     <View style={styles.resumoCasalHeader}>
                         <View style={styles.rowTitle}>
                             <Ionicons name="people-outline" size={22} color={colors.primaryLight} style={{ marginRight: 8 }} />
-                            <Text style={[styles.resumoCasalTitulo, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>
+                            <Text style={[styles.resumoCasalTitulo, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>
                                 {familyData?.nome || 'Agregado Familiar'}
                             </Text>
                         </View>
-                        <Text style={[styles.resumoCasalValor, { color: colors.danger, fontFamily: 'Inter_700Bold' }]}>-{totalGastoCasal.toFixed(2)} €</Text>
+                        <Text style={[styles.resumoCasalValor, { color: colors.danger, fontFamily: 'SpaceGrotesk_700Bold' }]}>-{totalGastoCasal.toFixed(2)} €</Text>
                     </View>
 
-                    <Text style={[styles.resumoCasalSub, { color: colors.textLight, fontFamily: 'Inter_400Regular' }]}>
+                    <Text style={[styles.resumoCasalSub, { color: colors.textLight, fontFamily: 'SpaceGrotesk_400Regular' }]}>
                         Rendimento: {rendaTotalCasal.toFixed(2)} € • Fixas Pagas: {totalFixasPagasCasal.toFixed(2)} €
                     </Text>
 
                     <View style={styles.barraFundo}>
                         <View style={[styles.barraProgresso, { width: `${pctGastaCasal}%`, backgroundColor: pctGastaCasal > 90 ? colors.danger : colors.primaryLight }]} />
                     </View>
-                    <Text style={[styles.pctCasalTexto, { color: colors.textLight, fontFamily: 'Inter_400Regular' }]}>
+                    <Text style={[styles.pctCasalTexto, { color: colors.textLight, fontFamily: 'SpaceGrotesk_400Regular' }]}>
                         {pctGastaCasal.toFixed(1)}% do rendimento consumido em gastos globais
                     </Text>
                 </View>
@@ -150,16 +140,14 @@ export default function SummaryScreen() {
                     membros.map((membro) => {
                         const rendaPessoa = Number(membro.renda) || 0;
                         const gastosPessoaVariaveis = gastosVariaveis.filter(item => item.quem === membro.nome || item.quemUid === membro.uid);
-                        const totalVariavelPessoa = gastosPessoaVariaveis
-                            .filter(item => (Number(item.valor) || 0) > 0)
-                            .reduce((soma, item) => soma + Number(item.valor), 0);
+                        const totalVariavelPessoa = calcularGastoTotal(gastosPessoaVariaveis.filter(item => (Number(item.valor) || 0) > 0));
 
                         // Contas fixas pagas por esta pessoa
                         const fixasPagasPessoa = despesasFixasPagasNoMes.filter(d => {
-                            const info = obterQuemPagouNoMes(d, chaveMesSelecionado);
-                            return info && (info.quemUid === membro.uid || info.quem === membro.nome);
+                            const quemPagou = obterQuemPagouFixoNoMes(d, chaveMesSelecionado);
+                            return quemPagou === membro.nome;
                         });
-                        const totalFixasPagaPessoa = fixasPagasPessoa.reduce((soma, d) => soma + (Number(d.valor) || 0), 0);
+                        const totalFixasPagaPessoa = calcularTotalFixasPagasPorMembro(despesasFixas, chaveMesSelecionado, membro.nome);
 
                         const totalGastoPessoa = totalVariavelPessoa + totalFixasPagaPessoa;
                         const percentagemGasta = rendaPessoa > 0
@@ -167,24 +155,7 @@ export default function SummaryScreen() {
                             : '0.0';
 
                         // Agrupar por categoria para esta pessoa (incluindo fixas pagas nas suas categorias reais)
-                        const catMap = gastosPessoaVariaveis.reduce((acc, item) => {
-                            const val = Number(item.valor) || 0;
-                            if (val <= 0) return acc;
-                            const cat = item.categoria || 'Outros';
-                            acc[cat] = acc[cat] || { categoria: cat, valor: 0 };
-                            acc[cat].valor += val;
-                            return acc;
-                        }, {});
-
-                        fixasPagasPessoa.forEach(fixa => {
-                            const val = Number(fixa.valor) || 0;
-                            if (val <= 0) return;
-                            const cat = fixa.categoria || 'Casa';
-                            catMap[cat] = catMap[cat] || { categoria: cat, valor: 0 };
-                            catMap[cat].valor += val;
-                        });
-
-                        const categoriasPessoa = Object.values(catMap).sort((a, b) => b.valor - a.valor);
+                        const categoriasPessoa = agruparGastosPorCategoria(gastosPessoaVariaveis, fixasPagasPessoa);
                         const estaExpandido = expandidoId === membro.uid;
 
                         return (
@@ -196,14 +167,14 @@ export default function SummaryScreen() {
                                 >
                                     <View>
                                         <View style={styles.rowTitle}>
-                                            <Text style={[styles.nome, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>{membro.nome}</Text>
+                                            <Text style={[styles.nome, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>{membro.nome}</Text>
                                             <Ionicons name={estaExpandido ? "chevron-up" : "chevron-down"} size={18} color={colors.textLight} style={{ marginLeft: 6 }} />
                                         </View>
-                                        <Text style={[styles.rendaText, { color: colors.success, fontFamily: 'Inter_600SemiBold' }]}>Ganha: {rendaPessoa.toFixed(2)} €</Text>
+                                        <Text style={[styles.rendaText, { color: colors.success, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>Ganha: {rendaPessoa.toFixed(2)} €</Text>
                                     </View>
                                     <View style={{ alignItems: 'flex-end' }}>
-                                        <Text style={[styles.valor, { color: colors.danger, fontFamily: 'Inter_700Bold' }]}>-{totalGastoPessoa.toFixed(2)} €</Text>
-                                        <Text style={[styles.percentagemText, { color: colors.textLight, fontFamily: 'Inter_400Regular' }]}>{percentagemGasta}% da renda</Text>
+                                        <Text style={[styles.valor, { color: colors.danger, fontFamily: 'SpaceGrotesk_700Bold' }]}>-{totalGastoPessoa.toFixed(2)} €</Text>
+                                        <Text style={[styles.percentagemText, { color: colors.textLight, fontFamily: 'SpaceGrotesk_400Regular' }]}>{percentagemGasta}% da renda</Text>
                                     </View>
                                 </TouchableOpacity>
 
@@ -212,19 +183,19 @@ export default function SummaryScreen() {
                                         {/* Resumo por Categorias da Pessoa */}
                                         {categoriasPessoa.length > 0 && (
                                             <View style={styles.seccaoCategoriasPessoa}>
-                                                <Text style={[styles.detalhesSubTitle, { color: colors.textMuted, fontFamily: 'Inter_600SemiBold' }]}>Categorias de {membro.nome}</Text>
+                                                <Text style={[styles.detalhesSubTitle, { color: colors.textMuted, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>Categorias de {membro.nome}</Text>
                                                 <View style={styles.chipsCategoriasRow}>
                                                     {categoriasPessoa.map(catItem => (
                                                         <View key={catItem.categoria} style={[styles.chipCategoriaPessoa, { backgroundColor: colors.cardBg }]}>
-                                                            <Text style={[styles.chipCatNome, { color: colors.textDark, fontFamily: 'Inter_500Medium' }]}>{catItem.categoria}</Text>
-                                                            <Text style={[styles.chipCatValor, { color: colors.danger, fontFamily: 'Inter_700Bold' }]}>{catItem.valor.toFixed(2)}€</Text>
+                                                            <Text style={[styles.chipCatNome, { color: colors.textDark, fontFamily: 'SpaceGrotesk_500Medium' }]}>{catItem.categoria}</Text>
+                                                            <Text style={[styles.chipCatValor, { color: colors.danger, fontFamily: 'SpaceGrotesk_700Bold' }]}>{catItem.valor.toFixed(2)}€</Text>
                                                         </View>
                                                     ))}
                                                 </View>
                                             </View>
                                         )}
 
-                                        <Text style={[styles.detalhesTitle, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>Movimentos de {membro.nome}</Text>
+                                        <Text style={[styles.detalhesTitle, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>Movimentos de {membro.nome}</Text>
                                         
                                         {/* Lista de Contas Fixas Pagas por este Membro */}
                                         {fixasPagasPessoa.map((fixa) => (
@@ -247,7 +218,7 @@ export default function SummaryScreen() {
                                                 <ExpenseCard key={expense.id} expense={expense} />
                                             ))
                                         ) : fixasPagasPessoa.length === 0 ? (
-                                            <Text style={[styles.semGastos, { color: colors.textLight, fontFamily: 'Inter_400Regular' }]}>Nenhum gasto registado ainda este mês.</Text>
+                                            <Text style={[styles.semGastos, { color: colors.textLight, fontFamily: 'SpaceGrotesk_400Regular' }]}>Nenhum gasto registado ainda este mês.</Text>
                                         ) : null}
                                     </View>
                                 )}

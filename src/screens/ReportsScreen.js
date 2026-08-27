@@ -12,6 +12,7 @@ import Svg, { Path, Circle, Text as SvgText } from 'react-native-svg';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystemLegacy from 'expo-file-system/legacy';
+import { calcularGastoTotal, calcularTotalFixasPagas } from '../utils/calculations';
 
 const { width } = Dimensions.get('window');
 
@@ -51,11 +52,10 @@ export default function ReportsScreen() {
                 
                 // Variáveis deste mês
                 const variaveisMes = gastos.filter(g => g.mesReferencia === chaveMes);
-                const totalVariavel = variaveisMes.reduce((soma, g) => soma + (Number(g.valor) || 0), 0);
+                const totalVariavel = calcularGastoTotal(variaveisMes);
                 
                 // Fixas pagas neste mês
-                const totalFixasPagas = despesasFixas.filter(d => d.pagamentos && d.pagamentos[chaveMes]?.pago)
-                                                    .reduce((soma, d) => soma + (Number(d.valor) || 0), 0);
+                const totalFixasPagas = calcularTotalFixasPagas(despesasFixas, chaveMes);
                 
                 const totalGasto = totalVariavel + totalFixasPagas;
                 const saldo = rendaTotalMensal - totalGasto;

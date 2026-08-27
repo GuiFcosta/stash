@@ -8,7 +8,7 @@ export const styles = StyleSheet.create({
     botaoMes: { padding: 6 },
     botaoMesDesativado: { opacity: 0.35 },
     rotuloMes: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', minWidth: 155, textAlign: 'center', textTransform: 'capitalize' },
-    saldoText: { color: '#FFFFFF', fontSize: 40, fontWeight: 'bold' },
+    saldoText: { color: '#FFFFFF', fontSize: 40, fontWeight: 'bold', fontFamily: 'SpaceGrotesk_700Bold' },
     saldoLabel: { color: '#E0E7FF', fontSize: 14, marginTop: 5, marginBottom: 15 },
     resumoRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginTop: 10, paddingHorizontal: 20 },
     resumoText: { color: '#93C5FD', fontSize: 12, fontWeight: 'bold' },

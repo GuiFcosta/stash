@@ -16,7 +16,7 @@ export const styles = StyleSheet.create({
     },
     title: {
         fontSize: 16,
-        fontFamily: 'Inter_600SemiBold',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
         textAlign: 'center',
         marginBottom: 6,
     },

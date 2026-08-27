@@ -307,8 +307,8 @@ export default function ProfileScreen() {
                 <Ionicons name={icone} size={22} color={corIcone} />
             </View>
             <View style={styles.menuTextContainer}>
-                <Text style={[styles.menuTitle, { color: colors.textDark, fontFamily: 'Inter_600SemiBold' }]}>{titulo}</Text>
-                {subtitulo && <Text style={[styles.menuSubtitle, { color: colors.textLight, fontFamily: 'Inter_400Regular' }]}>{subtitulo}</Text>}
+                <Text style={[styles.menuTitle, { color: colors.textDark, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>{titulo}</Text>
+                {subtitulo && <Text style={[styles.menuSubtitle, { color: colors.textLight, fontFamily: 'SpaceGrotesk_400Regular' }]}>{subtitulo}</Text>}
             </View>
             {rightElement || <Ionicons name="chevron-forward" size={20} color={colors.textDisabled} />}
         </TouchableOpacity>
@@ -358,14 +358,14 @@ export default function ProfileScreen() {
 
                     <View style={styles.profileInfo}>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Text style={[styles.profileName, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>
+                            <Text style={[styles.profileName, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>
                                 {userProfile?.nome || user?.displayName || 'Utilizador'}
                             </Text>
                             <TouchableOpacity onPress={abrirModalPerfil} style={{ padding: 4 }}>
                                 <Ionicons name="create-outline" size={20} color={colors.primaryLight} />
                             </TouchableOpacity>
                         </View>
-                        <Text style={[styles.profileEmail, { color: colors.textLight, fontFamily: 'Inter_400Regular' }]}>
+                        <Text style={[styles.profileEmail, { color: colors.textLight, fontFamily: 'SpaceGrotesk_400Regular' }]}>
                             {user?.email}
                         </Text>
                         <View style={styles.badgeRow}>
@@ -379,7 +379,7 @@ export default function ProfileScreen() {
                 </View>
 
                 {/* PAINEL DE GESTÃO DA FAMÍLIA */}
-                <Text style={[styles.sectionTitle, { color: colors.textDisabled, fontFamily: 'Inter_700Bold' }]}>
+                <Text style={[styles.sectionTitle, { color: colors.textDisabled, fontFamily: 'SpaceGrotesk_700Bold' }]}>
                     Gestão Familiar & Membros
                 </Text>
                 <View style={[styles.menuGroup, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
@@ -407,7 +407,7 @@ export default function ProfileScreen() {
                 </View>
 
                 {/* DEFINIÇÕES FINANCEIRAS */}
-                <Text style={[styles.sectionTitle, { color: colors.textDisabled, fontFamily: 'Inter_700Bold' }]}>
+                <Text style={[styles.sectionTitle, { color: colors.textDisabled, fontFamily: 'SpaceGrotesk_700Bold' }]}>
                     Definições Financeiras
                 </Text>
                 <View style={[styles.menuGroup, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
@@ -435,7 +435,7 @@ export default function ProfileScreen() {
                 </View>
 
                 {/* NOTIFICAÇÕES & LEMBRETES */}
-                {/*<Text style={[styles.sectionTitle, { color: colors.textDisabled, fontFamily: 'Inter_700Bold' }]}>*/}
+                {/*<Text style={[styles.sectionTitle, { color: colors.textDisabled, fontFamily: 'SpaceGrotesk_700Bold' }]}>*/}
                 {/*    Notificações & Lembretes*/}
                 {/*</Text>*/}
                 {/*<View style={[styles.menuGroup, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>*/}
@@ -472,7 +472,7 @@ export default function ProfileScreen() {
                 {/*</View>*/}
 
                 {/* APARÊNCIA E CONTA */}
-                <Text style={[styles.sectionTitle, { color: colors.textDisabled, fontFamily: 'Inter_700Bold' }]}>
+                <Text style={[styles.sectionTitle, { color: colors.textDisabled, fontFamily: 'SpaceGrotesk_700Bold' }]}>
                     Perfil, Aparência & Sessão
                 </Text>
                 <View style={[styles.menuGroup, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
@@ -522,7 +522,7 @@ export default function ProfileScreen() {
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
                     <View style={[styles.modalContent, { backgroundColor: colors.modalContent, maxHeight: '85%' }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>
+                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>
                                 {familyData?.nome || 'Gestão da Família'}
                             </Text>
                             <TouchableOpacity onPress={() => setModalFamiliaVisivel(false)}>
@@ -654,7 +654,7 @@ export default function ProfileScreen() {
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
                     <View style={[styles.modalContent, { backgroundColor: colors.modalContent }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>Juntar a outra Família</Text>
+                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>Juntar a outra Família</Text>
                             <TouchableOpacity onPress={() => setModalCodigoVisivel(false)}>
                                 <Ionicons name="close" size={28} color={colors.textLight} />
                             </TouchableOpacity>
@@ -683,7 +683,7 @@ export default function ProfileScreen() {
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
                     <View style={[styles.modalContent, { backgroundColor: colors.modalContent }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>O teu Rendimento (€)</Text>
+                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>O teu Rendimento (€)</Text>
                             <TouchableOpacity onPress={() => setModalRendaVisivel(false)}>
                                 <Ionicons name="close" size={28} color={colors.textLight} />
                             </TouchableOpacity>
@@ -707,8 +707,8 @@ export default function ProfileScreen() {
                     <View style={[styles.modalContent, { backgroundColor: colors.modalContent, maxHeight: '88%' }]}>
                         <View style={styles.modalHeader}>
                             <View>
-                                <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>Despesas Mensais</Text>
-                                <Text style={{ fontSize: 12, color: colors.textLight, fontFamily: 'Inter_400Regular' }}>
+                                <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>Despesas Mensais</Text>
+                                <Text style={{ fontSize: 12, color: colors.textLight, fontFamily: 'SpaceGrotesk_400Regular' }}>
                                     Total: {listaFixas.reduce((acc, i) => acc + (converterEmNumero(i.valorString) || 0), 0).toFixed(2)} € / mês
                                 </Text>
                             </View>
@@ -738,7 +738,7 @@ export default function ProfileScreen() {
                                         >
                                             <Text style={[
                                                 styles.chipCategoriaFixaTexto,
-                                                { color: colors.textMuted, fontFamily: 'Inter_600SemiBold' },
+                                                { color: colors.textMuted, fontFamily: 'SpaceGrotesk_600SemiBold' },
                                                 selecionada && { color: colors.primaryLight, fontWeight: 'bold' }
                                             ]}>
                                                 {cat} {countNaCategoria > 0 ? `(${countNaCategoria})` : ''}
@@ -757,7 +757,7 @@ export default function ProfileScreen() {
                                     return (
                                         <View style={{ alignItems: 'center', paddingVertical: 25, gap: 8 }}>
                                             <Ionicons name="receipt-outline" size={36} color={colors.textDisabled} />
-                                            <Text style={{ color: colors.textLight, fontSize: 13, textAlign: 'center', fontFamily: 'Inter_400Regular' }}>
+                                            <Text style={{ color: colors.textLight, fontSize: 13, textAlign: 'center', fontFamily: 'SpaceGrotesk_400Regular' }}>
                                                 Nenhuma conta configurada em {categoriaFixaSelecionada}.
                                             </Text>
                                         </View>
@@ -813,7 +813,7 @@ export default function ProfileScreen() {
                                 onPress={() => adicionarItemFixa(categoriaFixaSelecionada)}
                             >
                                 <Ionicons name="add-circle-outline" size={20} color={colors.primaryLight} style={{ marginRight: 6 }} />
-                                <Text style={[styles.txtAdicionarNova, { color: colors.primaryLight, fontFamily: 'Inter_700Bold' }]}>
+                                <Text style={[styles.txtAdicionarNova, { color: colors.primaryLight, fontFamily: 'SpaceGrotesk_700Bold' }]}>
                                     Adicionar Conta em {categoriaFixaSelecionada}
                                 </Text>
                             </TouchableOpacity>
@@ -831,7 +831,7 @@ export default function ProfileScreen() {
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
                     <View style={[styles.modalContent, { backgroundColor: colors.modalContent, maxHeight: '85%' }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>Limites por Categoria (€)</Text>
+                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>Limites por Categoria (€)</Text>
                             <TouchableOpacity onPress={() => setModalLimitesVisivel(false)}>
                                 <Ionicons name="close" size={28} color={colors.textLight} />
                             </TouchableOpacity>
@@ -866,7 +866,7 @@ export default function ProfileScreen() {
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
                     <View style={[styles.modalContent, { backgroundColor: colors.modalContent, maxHeight: '85%' }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>Editar Perfil</Text>
+                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>Editar Perfil</Text>
                             <TouchableOpacity onPress={() => setModalPerfilVisivel(false)}>
                                 <Ionicons name="close" size={28} color={colors.textLight} />
                             </TouchableOpacity>
@@ -892,7 +892,7 @@ export default function ProfileScreen() {
 
                             <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Nome de Utilizador</Text>
                             <TextInput
-                                style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'Inter_600SemiBold' }]}
+                                style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'SpaceGrotesk_600SemiBold' }]}
                                 placeholder="O teu nome"
                                 placeholderTextColor={colors.textDisabled}
                                 value={nomeInput}

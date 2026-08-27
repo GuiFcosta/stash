@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Text, View, SafeAreaView, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Alert, RefreshControl, LayoutAnimation, UIManager } from 'react-native';
+import { Text, View, SafeAreaView, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Alert, RefreshControl, LayoutAnimation } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import EmptyState from '../components/EmptyState';
@@ -10,26 +9,24 @@ import { SkeletonExpenseCard, SkeletonHeader } from '../components/SkeletonLoade
 import ExpenseCard from '../components/ExpenseCard';
 import CategoryDonutChart from '../components/CategoryDonutChart';
 import { CATEGORIAS_DE_GASTO } from '../constants/Categories';
-import { collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, setDoc, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../services/Firebase';
 import { alterarMes, chaveDoMes, inicioDoMes, rotuloDoMes } from '../utils/Month';
 import { useMonth } from '../context/MonthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { hexToRgba } from '../utils/colors';
+import { useExpenses } from '../hooks/useExpenses';
+import { useFixedExpenses } from '../hooks/useFixedExpenses';
+import {
+    calcularGastoTotal,
+    calcularTotalFixasPagas,
+    agruparGastosPorCategoria,
+    despesaFixaFoiPagaNoMes,
+    obterQuemPagouFixoNoMes
+} from '../utils/calculations';
+import { formatarMoeda } from '../utils/formatters';
 import { styles } from "./styles/HomeScreenStyles";
-
-const obterTimestamp = (gasto) => {
-    if (Number.isFinite(gasto.timestamp)) return gasto.timestamp;
-    if (typeof gasto.timestamp?.toMillis === 'function') return gasto.timestamp.toMillis();
-
-    const [dia, mes] = String(gasto.data || '').split('/').map(Number);
-    if (dia > 0 && mes > 0 && mes <= 12) {
-        return new Date(new Date().getFullYear(), mes - 1, dia).getTime();
-    }
-
-    return 0;
-};
 
 export default function HomeScreen() {
     const { colors, isDarkMode } = useTheme();
@@ -38,7 +35,6 @@ export default function HomeScreen() {
     const insets = useSafeAreaInsets();
 
     const [atualizando, setAtualizando] = useState(false);
-    const [carregando, setCarregando] = useState(true);
 
     const [modalVisivel, setModalVisivel] = useState(false);
     const [novoValor, setNovoValor] = useState('');
@@ -47,7 +43,6 @@ export default function HomeScreen() {
     const [quemGastou, setQuemGastou] = useState(userProfile?.nome || 'Eu');
     const [gastoEmEdicao, setGastoEmEdicao] = useState(null);
 
-    const [gastosVariaveis, setGastosVariaveis] = useState([]);
     const [despesasFixasExpandidas, setDespesasFixasExpandidas] = useState(true);
 
     // Estados para Pesquisa e Filtros
@@ -59,6 +54,18 @@ export default function HomeScreen() {
     const despesasEssenciais = familyData?.despesasFixas || [];
     const limitesCategorias = familyData?.limitesCategorias || {};
 
+    const {
+        gastos: gastosVariaveis,
+        carregando: carregandoExpenses,
+        adicionarGasto,
+        editarGasto,
+        eliminarGasto
+    } = useExpenses(familyId, mesSelecionado);
+
+    const { alternarPagamentoFixo } = useFixedExpenses(familyId, despesasEssenciais);
+
+    const carregando = carregandoExpenses;
+
     const totalRenda = membrosFamilia.reduce((soma, m) => soma + (Number(m.renda) || 0), 0);
 
     useEffect(() => {
@@ -66,34 +73,6 @@ export default function HomeScreen() {
             setQuemGastou(userProfile.nome);
         }
     }, [userProfile]);
-
-    useEffect(() => {
-        if (!familyId) return;
-
-        setCarregando(true);
-        const gastosDoMes = query(
-            collection(db, 'gastos_variaveis'),
-            where('familyId', '==', familyId),
-            where('mesReferencia', '==', chaveDoMes(mesSelecionado)),
-        );
-
-        const unsubGastos = onSnapshot(gastosDoMes, (snapshot) => {
-            const listaGastos = snapshot.docs.map(documento => ({
-                id: documento.id,
-                ...documento.data()
-            }));
-
-            listaGastos.sort((a, b) => obterTimestamp(b) - obterTimestamp(a));
-            setGastosVariaveis(listaGastos);
-            setCarregando(false);
-        }, (err) => {
-            console.error("Erro ao carregar gastos:", err);
-            setCarregando(false);
-        });
-
-        return () => { unsubGastos(); };
-
-    }, [mesSelecionado, familyId]);
 
     useEffect(() => {
         if (!familyId) return;
@@ -136,47 +115,16 @@ export default function HomeScreen() {
 
     const chaveMesSelecionado = chaveDoMes(mesSelecionado);
     const eMesAtual = chaveMesSelecionado === chaveDoMes(new Date());
-    const despesaFoiPagaNoMes = (despesa) => {
-        const val = despesa.pagamentos?.[chaveMesSelecionado];
-        if (typeof val === 'boolean') return val;
-        if (typeof val === 'object' && val !== null) return Boolean(val.pago);
-        return eMesAtual && Boolean(despesa.pago);
-    };
+    const despesaFoiPagaNoMes = (despesa) => despesaFixaFoiPagaNoMes(despesa, chaveMesSelecionado);
+    const obterQuemPagouNoMes = (despesa) => obterQuemPagouFixoNoMes(despesa, chaveMesSelecionado);
 
-    const obterQuemPagouNoMes = (despesa) => {
-        const val = despesa.pagamentos?.[chaveMesSelecionado];
-        if (typeof val === 'object' && val !== null && val.pago) {
-            return val.quem || null;
-        }
-        return null;
-    };
-
-    const totalEssenciais = despesasEssenciais
-        .filter(despesaFoiPagaNoMes)
-        .reduce((soma, despesa) => soma + (Number(despesa.valor) || 0), 0);
-    const totalVariaveis = gastosVariaveis.reduce((soma, despesa) => soma + (Number(despesa.valor) || 0), 0);
+    const totalEssenciais = calcularTotalFixasPagas(despesasEssenciais, chaveMesSelecionado);
+    const totalVariaveis = calcularGastoTotal(gastosVariaveis);
     const saldoDisponivel = totalRenda - totalEssenciais - totalVariaveis;
     const podeAvancarMes = mesSelecionado < inicioDoMes(new Date());
 
     const despesasFixasPagasNoMes = despesasEssenciais.filter(despesaFoiPagaNoMes);
-
-    const todosOsGastosParaGrafico = [
-        ...gastosVariaveis,
-        ...despesasFixasPagasNoMes.map(f => ({
-            valor: Number(f.valor) || 0,
-            categoria: f.categoria || 'Casa'
-        }))
-    ];
-
-    const gastosPorCategoria = Object.values(todosOsGastosParaGrafico.reduce((resultado, gasto) => {
-        const valor = Number(gasto.valor) || 0;
-        if (valor <= 0) return resultado;
-
-        const categoria = gasto.categoria || 'Outros';
-        resultado[categoria] = resultado[categoria] || { categoria, valor: 0 };
-        resultado[categoria].valor += valor;
-        return resultado;
-    }, {})).sort((a, b) => b.valor - a.valor);
+    const gastosPorCategoria = agruparGastosPorCategoria(gastosVariaveis, despesasFixasPagasNoMes);
 
     const gastosFiltrados = gastosVariaveis.filter((gasto) => {
         const termo = textoPesquisa.trim().toLowerCase();
@@ -187,44 +135,15 @@ export default function HomeScreen() {
         return bateTexto && batePessoa;
     });
 
-    const alternarPagamentoFixo = async (id, estadoAtual) => {
-        if (!familyId) return;
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        try {
-            const novoEstado = !estadoAtual;
-            const nomeQuemPagou = userProfile?.nome || user?.displayName || 'Eu';
-            const uidQuemPagou = user?.uid || '';
-
-            const novaLista = despesasEssenciais.map(item => {
-                if (item.id !== id) return item;
-
-                const pagamentos = { ...(item.pagamentos || {}) };
-
-                if (novoEstado) {
-                    pagamentos[chaveMesSelecionado] = {
-                        pago: true,
-                        quem: nomeQuemPagou,
-                        quemUid: uidQuemPagou,
-                        timestamp: Date.now()
-                    };
-                } else {
-                    delete pagamentos[chaveMesSelecionado];
-                }
-
-                return {
-                    ...item,
-                    pagamentos,
-                    ...(eMesAtual ? { pago: novoEstado } : {}),
-                };
-            });
-
-            await updateDoc(doc(db, 'familias', familyId), {
-                despesasFixas: novaLista
-            });
-
-        } catch (error) {
-            Alert.alert("Erro", "Erro ao atualizar o estado da conta.");
-        }
+    const handleAlternarPagamentoFixo = async (id, estadoAtual) => {
+        await alternarPagamentoFixo(
+            id,
+            estadoAtual,
+            chaveMesSelecionado,
+            eMesAtual,
+            userProfile?.nome || user?.displayName || 'Eu',
+            user?.uid || ''
+        );
     };
 
     const guardarGasto = async () => {
@@ -259,17 +178,16 @@ export default function HomeScreen() {
             };
 
             if (gastoEmEdicao) {
-                await updateDoc(doc(db, 'gastos_variaveis', gastoEmEdicao.id), dadosGasto);
+                await editarGasto(gastoEmEdicao.id, dadosGasto);
             } else {
-                await addDoc(collection(db, 'gastos_variaveis'), dadosGasto);
+                await adicionarGasto(dadosGasto);
             }
 
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             setNovaLoja(''); setNovoValor(''); setNovaCategoria(CATEGORIAS_DE_GASTO[0]); setQuemGastou(userProfile?.nome || 'Eu');
             setGastoEmEdicao(null); setModalVisivel(false);
 
         } catch (error) {
-            Alert.alert("Erro", "Erro ao gravar. Verifica a ligação.");
+            // Tratado no hook
         }
     };
 
@@ -296,10 +214,9 @@ export default function HomeScreen() {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            await deleteDoc(doc(db, 'gastos_variaveis', despesa.id));
-                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            await eliminarGasto(despesa.id);
                         } catch (error) {
-                            Alert.alert("Erro", "Erro ao apagar o gasto.");
+                            // Tratado no hook
                         }
                     }
                 }
@@ -429,7 +346,7 @@ export default function HomeScreen() {
                                                 estaPaga && styles.essencialCardPago
                                             ]}
                                             activeOpacity={0.7}
-                                            onPress={() => alternarPagamentoFixo(item.id, estaPaga)}
+                                            onPress={() => handleAlternarPagamentoFixo(item.id, estaPaga)}
                                         >
                                             <View style={styles.essencialInfoRow}>
                                                 <Ionicons

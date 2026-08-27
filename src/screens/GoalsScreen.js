@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Text, View, SafeAreaView, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, query, where } from 'firebase/firestore';
-import { db } from '../services/Firebase';
-import { chaveDoMes } from '../utils/Month';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { hexToRgba } from '../utils/colors';
+import { useGoals } from '../hooks/useGoals';
 import { styles } from './styles/GoalsScreenStyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -18,8 +16,6 @@ export default function GoalsScreen() {
     const { user, userProfile, familyData } = useAuth();
     const insets = useSafeAreaInsets();
 
-    const [objetivos, setObjetivos] = useState([]);
-    const [carregando, setCarregando] = useState(true);
     const [objetivoSelecionado, setObjetivoSelecionado] = useState(null);
 
     const [modalCriarVisivel, setModalCriarVisivel] = useState(false);
@@ -43,28 +39,20 @@ export default function GoalsScreen() {
     const familyId = familyData?.id;
     const membrosFamilia = familyData?.membros || [];
 
+    const {
+        objetivos,
+        carregando,
+        criarObjetivo,
+        editarObjetivo,
+        excluirObjetivo,
+        movimentarFundo
+    } = useGoals(familyId);
+
     useEffect(() => {
         if (userProfile?.nome) {
             setDonoObjetivo(userProfile.nome);
         }
     }, [userProfile]);
-
-    useEffect(() => {
-        if (!familyId) return;
-
-        setCarregando(true);
-        const q = query(collection(db, 'objetivos'), where('familyId', '==', familyId));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const listaObjetivos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setObjetivos(listaObjetivos);
-            setCarregando(false);
-        }, (err) => {
-            console.error("Erro ao carregar objetivos:", err);
-            setCarregando(false);
-        });
-
-        return () => unsubscribe();
-    }, [familyId]);
 
     const guardarNovoObjetivo = async () => {
         if (!novoTitulo || !novaMeta) { Alert.alert("Aviso", "Preenche o título e a meta!"); return; }
@@ -78,8 +66,7 @@ export default function GoalsScreen() {
         }
         try {
             const membroDono = tipoObjetivo === 'individual' ? membrosFamilia.find(m => m.nome === donoObjetivo) : null;
-            await addDoc(collection(db, 'objetivos'), {
-                familyId: familyId,
+            await criarObjetivo({
                 titulo: novoTitulo,
                 meta,
                 guardado,
@@ -88,12 +75,13 @@ export default function GoalsScreen() {
                 dono: tipoObjetivo === 'individual' ? donoObjetivo : null,
                 donoUid: tipoObjetivo === 'individual' ? (membroDono?.uid || user?.uid || '') : null
             });
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             setNovoTitulo(''); setNovaMeta(''); setNovoGuardado(''); setNovoIcone('');
             setTipoObjetivo('familiar');
             setDonoObjetivo(userProfile?.nome || 'Eu');
             setModalCriarVisivel(false);
-        } catch (error) { Alert.alert("Erro", "Erro ao criar meta."); }
+        } catch (error) {
+            // Tratado no hook
+        }
     };
 
     const abrirEdicao = (objetivo) => {
@@ -115,7 +103,7 @@ export default function GoalsScreen() {
         }
         try {
             const membroDonoEdit = editTipo === 'individual' ? membrosFamilia.find(m => m.nome === editDono) : null;
-            await updateDoc(doc(db, 'objetivos', objetivoSelecionado.id), {
+            await editarObjetivo(objetivoSelecionado.id, {
                 titulo: editTitulo,
                 icone: editIcone.trim() === '' ? '🎯' : editIcone,
                 meta,
@@ -123,10 +111,11 @@ export default function GoalsScreen() {
                 dono: editTipo === 'individual' ? editDono : null,
                 donoUid: editTipo === 'individual' ? (membroDonoEdit?.uid || objetivoSelecionado.donoUid || '') : null
             });
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             setModalEditarVisivel(false);
             setObjetivoSelecionado(null);
-        } catch (error) { Alert.alert("Erro", "Erro ao editar."); }
+        } catch (error) {
+            // Tratado no hook
+        }
     };
 
     const realizarMovimento = async (tipo) => {
@@ -139,58 +128,28 @@ export default function GoalsScreen() {
                 return;
             }
 
-            let novoTotalGuardado;
-            let valorParaHome;
-
-            if (tipo === 'depositar') {
-                novoTotalGuardado = objetivoSelecionado.guardado + valorAcao;
-                valorParaHome = valorAcao;
-            } else {
-                if (valorAcao > objetivoSelecionado.guardado) {
-                    Alert.alert("Aviso", "Não podes retirar mais do que tens guardado!");
-                    return;
-                }
-                novoTotalGuardado = objetivoSelecionado.guardado - valorAcao;
-                valorParaHome = -valorAcao;
-            }
-
-            await updateDoc(doc(db, 'objetivos', objetivoSelecionado.id), { guardado: novoTotalGuardado });
-
-            const dataAtual = new Date();
-            const diaStr = String(dataAtual.getDate()).padStart(2, '0');
-            const mesStr = String(dataAtual.getMonth() + 1).padStart(2, '0');
-
-            await addDoc(collection(db, 'gastos_variaveis'), {
-                familyId: familyId,
-                loja: tipo === 'depositar' ? `Poupança: ${objetivoSelecionado.titulo}` : `Resgate: ${objetivoSelecionado.titulo}`,
-                valor: valorParaHome,
-                data: `${diaStr}/${mesStr}`,
-                quem: userProfile?.nome || 'Eu',
-                quemUid: user?.uid || '',
-                categoria: 'Poupança',
-                mesReferencia: chaveDoMes(dataAtual),
-                timestamp: Date.now()
-            });
-
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            setValorMovimento('');
-            setObjetivoSelecionado(null);
-            setModalMovimentoVisivel(false);
-
-            Alert.alert(
-                "Sucesso!",
-                tipo === 'depositar'
-                    ? `Guardaste ${valorAcao}€.`
-                    : `Retiraste ${valorAcao}€. O valor voltou ao Saldo Disponível.`
+            const sucesso = await movimentarFundo(
+                objetivoSelecionado,
+                valorAcao,
+                tipo,
+                userProfile?.nome || 'Eu',
+                user?.uid || ''
             );
 
-        } catch (error) { Alert.alert("Erro", "Erro ao movimentar dinheiro."); }
+            if (sucesso) {
+                setValorMovimento('');
+                setObjetivoSelecionado(null);
+                setModalMovimentoVisivel(false);
+            }
+        } catch (error) {
+            // Tratado no hook
+        }
     };
 
     const gerirObjetivo = (objetivo) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         Alert.alert(
-            "Gerir Objetivo",
+            "Gerir Gasto", // Mantem consistência com título original/novo
             `O que desejas fazer com "${objetivo.titulo}"?`,
             [
                 { text: "Cancelar", style: "cancel" },
@@ -201,10 +160,9 @@ export default function GoalsScreen() {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            await deleteDoc(doc(db, 'objetivos', objetivo.id));
-                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            await excluirObjetivo(objetivo.id);
                         } catch (error) {
-                            Alert.alert("Erro", "Erro ao apagar a meta.");
+                            // Tratado no hook
                         }
                     }
                 }
@@ -235,7 +193,7 @@ export default function GoalsScreen() {
                         {/* SECÇÃO FAMILIAR */}
                         {objetivos.filter(obj => obj.tipo === 'familiar' || !obj.tipo).length > 0 && (
                             <View style={styles.seccao}>
-                                <Text style={[styles.seccaoTitulo, { color: colors.textLight, fontFamily: 'Inter_700Bold' }]}>Objetivos da Família</Text>
+                                <Text style={[styles.seccaoTitulo, { color: colors.textLight, fontFamily: 'SpaceGrotesk_700Bold' }]}>Objetivos da Família</Text>
                                 {objetivos.filter(obj => obj.tipo === 'familiar' || !obj.tipo).map((objetivo) => {
                                     const percentagem = Math.min(objetivo.meta > 0 ? (objetivo.guardado / objetivo.meta) * 100 : 0, 100);
                                     const concluido = percentagem >= 100;
@@ -243,9 +201,9 @@ export default function GoalsScreen() {
                                     return (
                                         <TouchableOpacity key={objetivo.id} style={[styles.card, { backgroundColor: colors.cardBg, borderColor: colors.border }]} activeOpacity={0.8} onPress={() => gerirObjetivo(objetivo)}>
                                             <View style={styles.cardHeader}>
-                                                <Text style={[styles.titulo, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>{objetivo.icone} {objetivo.titulo}</Text>
-                                                <Text style={[styles.valores, { color: colors.textLight, fontFamily: 'Inter_400Regular' }]}>
-                                                    <Text style={[styles.guardado, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>{objetivo.guardado.toFixed(0)}€</Text> / {objetivo.meta.toFixed(0)}€
+                                                <Text style={[styles.titulo, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>{objetivo.icone} {objetivo.titulo}</Text>
+                                                <Text style={[styles.valores, { color: colors.textLight, fontFamily: 'SpaceGrotesk_400Regular' }]}>
+                                                    <Text style={[styles.guardado, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>{objetivo.guardado.toFixed(0)}€</Text> / {objetivo.meta.toFixed(0)}€
                                                 </Text>
                                             </View>
                                             <View style={[styles.barraFundo, { backgroundColor: colors.inputBg }]}>
@@ -260,7 +218,7 @@ export default function GoalsScreen() {
                         {/* SECÇÃO INDIVIDUAL */}
                         {objetivos.filter(obj => obj.tipo === 'individual').length > 0 && (
                             <View style={styles.seccao}>
-                                <Text style={[styles.seccaoTitulo, { color: colors.textLight, fontFamily: 'Inter_700Bold' }]}>Objetivos Individuais</Text>
+                                <Text style={[styles.seccaoTitulo, { color: colors.textLight, fontFamily: 'SpaceGrotesk_700Bold' }]}>Objetivos Individuais</Text>
                                 {objetivos.filter(obj => obj.tipo === 'individual').map((objetivo) => {
                                     const percentagem = Math.min(objetivo.meta > 0 ? (objetivo.guardado / objetivo.meta) * 100 : 0, 100);
                                     const concluido = percentagem >= 100;
@@ -269,13 +227,13 @@ export default function GoalsScreen() {
                                         <TouchableOpacity key={objetivo.id} style={[styles.card, { backgroundColor: colors.cardBg, borderColor: colors.border }]} activeOpacity={0.8} onPress={() => gerirObjetivo(objetivo)}>
                                             <View style={styles.cardHeader}>
                                                 <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                                    <Text style={[styles.titulo, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>{objetivo.icone} {objetivo.titulo}</Text>
+                                                    <Text style={[styles.titulo, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>{objetivo.icone} {objetivo.titulo}</Text>
                                                     <View style={[styles.badgeDono, { backgroundColor: hexToRgba(colors.primaryLight, 0.15) }]}>
-                                                        <Text style={[styles.badgeDonoTexto, { color: colors.primaryLight, fontFamily: 'Inter_600SemiBold' }]}>{objetivo.dono}</Text>
+                                                        <Text style={[styles.badgeDonoTexto, { color: colors.primaryLight, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>{objetivo.dono}</Text>
                                                     </View>
                                                 </View>
-                                                <Text style={[styles.valores, { color: colors.textLight, fontFamily: 'Inter_400Regular' }]}>
-                                                    <Text style={[styles.guardado, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>{objetivo.guardado.toFixed(0)}€</Text> / {objetivo.meta.toFixed(0)}€
+                                                <Text style={[styles.valores, { color: colors.textLight, fontFamily: 'SpaceGrotesk_400Regular' }]}>
+                                                    <Text style={[styles.guardado, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>{objetivo.guardado.toFixed(0)}€</Text> / {objetivo.meta.toFixed(0)}€
                                                 </Text>
                                             </View>
                                             <View style={[styles.barraFundo, { backgroundColor: colors.inputBg }]}>
@@ -299,17 +257,17 @@ export default function GoalsScreen() {
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
                     <View style={[styles.modalContent, { backgroundColor: colors.modalContent }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>Novo Objetivo</Text>
+                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>Novo Objetivo</Text>
                             <TouchableOpacity onPress={() => setModalCriarVisivel(false)}><Ionicons name="close" size={28} color={colors.textLight} /></TouchableOpacity>
                         </View>
-                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'Inter_400Regular' }]} placeholder="Título (Ex: Viagem)" placeholderTextColor={colors.textDisabled} value={novoTitulo} onChangeText={setNovoTitulo} />
-                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'Inter_400Regular' }]} placeholder="Emoji (Ex: ✈️)" placeholderTextColor={colors.textDisabled} value={novoIcone} onChangeText={setNovoIcone} />
+                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'SpaceGrotesk_400Regular' }]} placeholder="Título (Ex: Viagem)" placeholderTextColor={colors.textDisabled} value={novoTitulo} onChangeText={setNovoTitulo} />
+                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'SpaceGrotesk_400Regular' }]} placeholder="Emoji (Ex: ✈️)" placeholderTextColor={colors.textDisabled} value={novoIcone} onChangeText={setNovoIcone} />
                         <View style={styles.rowInputs}>
-                            <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, flex: 1, marginRight: 10, fontFamily: 'Inter_400Regular' }]} placeholder="Meta (€)" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={novaMeta} onChangeText={setNovaMeta} />
-                            <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, flex: 1, fontFamily: 'Inter_400Regular' }]} placeholder="Já guardado (€)" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={novoGuardado} onChangeText={setNovoGuardado} />
+                            <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, flex: 1, marginRight: 10, fontFamily: 'SpaceGrotesk_400Regular' }]} placeholder="Meta (€)" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={novaMeta} onChangeText={setNovaMeta} />
+                            <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, flex: 1, fontFamily: 'SpaceGrotesk_400Regular' }]} placeholder="Já guardado (€)" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={novoGuardado} onChangeText={setNovoGuardado} />
                         </View>
 
-                        <Text style={[styles.labelPessoa, { color: colors.textMuted, fontFamily: 'Inter_700Bold', marginBottom: 8, marginTop: 5 }]}>Tipo de Objetivo</Text>
+                        <Text style={[styles.labelPessoa, { color: colors.textMuted, fontFamily: 'SpaceGrotesk_700Bold', marginBottom: 8, marginTop: 5 }]}>Tipo de Objetivo</Text>
                         <View style={styles.tipoContainer}>
                             <TouchableOpacity
                                 style={[
@@ -324,7 +282,7 @@ export default function GoalsScreen() {
                             >
                                 <Text style={[
                                     styles.btnTipoTexto,
-                                    { color: colors.textLight, fontFamily: 'Inter_600SemiBold' },
+                                    { color: colors.textLight, fontFamily: 'SpaceGrotesk_600SemiBold' },
                                     tipoObjetivo === 'familiar' && { color: colors.primaryLight, fontWeight: 'bold' }
                                 ]}>
                                     Familiar
@@ -343,7 +301,7 @@ export default function GoalsScreen() {
                             >
                                 <Text style={[
                                     styles.btnTipoTexto,
-                                    { color: colors.textLight, fontFamily: 'Inter_600SemiBold' },
+                                    { color: colors.textLight, fontFamily: 'SpaceGrotesk_600SemiBold' },
                                     tipoObjetivo === 'individual' && { color: colors.primaryLight, fontWeight: 'bold' }
                                 ]}>
                                     Individual
@@ -353,7 +311,7 @@ export default function GoalsScreen() {
 
                         {tipoObjetivo === 'individual' && (
                             <>
-                                <Text style={[styles.labelPessoa, { color: colors.textMuted, fontFamily: 'Inter_700Bold', marginBottom: 8, marginTop: 5 }]}>A quem pertence?</Text>
+                                <Text style={[styles.labelPessoa, { color: colors.textMuted, fontFamily: 'SpaceGrotesk_700Bold', marginBottom: 8, marginTop: 5 }]}>A quem pertence?</Text>
                                 <View style={styles.donoContainer}>
                                     {membrosFamilia.map((membro) => {
                                         const eSelecionado = donoObjetivo === membro.nome;
@@ -372,7 +330,7 @@ export default function GoalsScreen() {
                                             >
                                                 <Text style={[
                                                     styles.btnDonoTexto,
-                                                    { color: colors.textLight, fontFamily: 'Inter_600SemiBold' },
+                                                    { color: colors.textLight, fontFamily: 'SpaceGrotesk_600SemiBold' },
                                                     eSelecionado && { color: colors.primaryLight, fontWeight: 'bold' }
                                                 ]}>
                                                     {membro.nome}
@@ -384,7 +342,7 @@ export default function GoalsScreen() {
                             </>
                         )}
 
-                        <TouchableOpacity style={[styles.btnGuardar, { backgroundColor: colors.primaryLight, marginTop: 10 }]} onPress={guardarNovoObjetivo}><Text style={[styles.btnGuardarTexto, { fontFamily: 'Inter_700Bold' }]}>Criar Objetivo</Text></TouchableOpacity>
+                        <TouchableOpacity style={[styles.btnGuardar, { backgroundColor: colors.primaryLight, marginTop: 10 }]} onPress={guardarNovoObjetivo}><Text style={[styles.btnGuardarTexto, { fontFamily: 'SpaceGrotesk_700Bold' }]}>Criar Objetivo</Text></TouchableOpacity>
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
@@ -394,14 +352,14 @@ export default function GoalsScreen() {
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
                     <View style={[styles.modalContent, { backgroundColor: colors.modalContent }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>Editar Objetivo</Text>
+                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>Editar Objetivo</Text>
                             <TouchableOpacity onPress={() => setModalEditarVisivel(false)}><Ionicons name="close" size={28} color={colors.textLight} /></TouchableOpacity>
                         </View>
-                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'Inter_400Regular' }]} placeholder="Título" placeholderTextColor={colors.textDisabled} value={editTitulo} onChangeText={setEditTitulo} />
-                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'Inter_400Regular' }]} placeholder="Emoji" placeholderTextColor={colors.textDisabled} value={editIcone} onChangeText={setEditIcone} />
-                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'Inter_400Regular' }]} placeholder="Valor da Meta (€)" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={editMeta} onChangeText={setEditMeta} />
+                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'SpaceGrotesk_400Regular' }]} placeholder="Título" placeholderTextColor={colors.textDisabled} value={editTitulo} onChangeText={setEditTitulo} />
+                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'SpaceGrotesk_400Regular' }]} placeholder="Emoji" placeholderTextColor={colors.textDisabled} value={editIcone} onChangeText={setEditIcone} />
+                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'SpaceGrotesk_400Regular' }]} placeholder="Valor da Meta (€)" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={editMeta} onChangeText={setEditMeta} />
 
-                        <Text style={[styles.labelPessoa, { color: colors.textMuted, fontFamily: 'Inter_700Bold', marginBottom: 8, marginTop: 5 }]}>Tipo de Objetivo</Text>
+                        <Text style={[styles.labelPessoa, { color: colors.textMuted, fontFamily: 'SpaceGrotesk_700Bold', marginBottom: 8, marginTop: 5 }]}>Tipo de Objetivo</Text>
                         <View style={styles.tipoContainer}>
                             <TouchableOpacity
                                 style={[
@@ -416,7 +374,7 @@ export default function GoalsScreen() {
                             >
                                 <Text style={[
                                     styles.btnTipoTexto,
-                                    { color: colors.textLight, fontFamily: 'Inter_600SemiBold' },
+                                    { color: colors.textLight, fontFamily: 'SpaceGrotesk_600SemiBold' },
                                     editTipo === 'familiar' && { color: colors.primaryLight, fontWeight: 'bold' }
                                 ]}>
                                     Familiar
@@ -435,7 +393,7 @@ export default function GoalsScreen() {
                             >
                                 <Text style={[
                                     styles.btnTipoTexto,
-                                    { color: colors.textLight, fontFamily: 'Inter_600SemiBold' },
+                                    { color: colors.textLight, fontFamily: 'SpaceGrotesk_600SemiBold' },
                                     editTipo === 'individual' && { color: colors.primaryLight, fontWeight: 'bold' }
                                 ]}>
                                     Individual
@@ -445,7 +403,7 @@ export default function GoalsScreen() {
 
                         {editTipo === 'individual' && (
                             <>
-                                <Text style={[styles.labelPessoa, { color: colors.textMuted, fontFamily: 'Inter_700Bold', marginBottom: 8, marginTop: 5 }]}>A quem pertence?</Text>
+                                <Text style={[styles.labelPessoa, { color: colors.textMuted, fontFamily: 'SpaceGrotesk_700Bold', marginBottom: 8, marginTop: 5 }]}>A quem pertence?</Text>
                                 <View style={styles.donoContainer}>
                                     {membrosFamilia.map((membro) => {
                                         const eSelecionado = editDono === membro.nome;
@@ -464,7 +422,7 @@ export default function GoalsScreen() {
                                             >
                                                 <Text style={[
                                                     styles.btnDonoTexto,
-                                                    { color: colors.textLight, fontFamily: 'Inter_600SemiBold' },
+                                                    { color: colors.textLight, fontFamily: 'SpaceGrotesk_600SemiBold' },
                                                     eSelecionado && { color: colors.primaryLight, fontWeight: 'bold' }
                                                 ]}>
                                                     {membro.nome}
@@ -476,7 +434,7 @@ export default function GoalsScreen() {
                             </>
                         )}
 
-                        <TouchableOpacity style={[styles.btnGuardar, { backgroundColor: colors.primaryLight, marginTop: 15 }]} onPress={guardarEdicao}><Text style={[styles.btnGuardarTexto, { fontFamily: 'Inter_700Bold' }]}>Guardar Alterações</Text></TouchableOpacity>
+                        <TouchableOpacity style={[styles.btnGuardar, { backgroundColor: colors.primaryLight, marginTop: 15 }]} onPress={guardarEdicao}><Text style={[styles.btnGuardarTexto, { fontFamily: 'SpaceGrotesk_700Bold' }]}>Guardar Alterações</Text></TouchableOpacity>
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
@@ -486,19 +444,19 @@ export default function GoalsScreen() {
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
                     <View style={[styles.modalContent, { backgroundColor: colors.modalContent }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'Inter_700Bold' }]}>Movimentar Dinheiro</Text>
+                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>Movimentar Dinheiro</Text>
                             <TouchableOpacity onPress={() => setModalMovimentoVisivel(false)}><Ionicons name="close" size={28} color={colors.textLight} /></TouchableOpacity>
                         </View>
-                        <Text style={{ color: colors.textLight, marginBottom: 20, textAlign: 'center', fontFamily: 'Inter_400Regular' }}>Valor a movimentar em: {objetivoSelecionado?.titulo}</Text>
+                        <Text style={{ color: colors.textLight, marginBottom: 20, textAlign: 'center', fontFamily: 'SpaceGrotesk_400Regular' }}>Valor a movimentar em: {objetivoSelecionado?.titulo}</Text>
 
-                        <TextInput style={[styles.inputGrande, { color: colors.primaryLight, fontFamily: 'Inter_700Bold' }]} placeholder="0,00 €" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={valorMovimento} onChangeText={setValorMovimento} autoFocus={true} />
+                        <TextInput style={[styles.inputGrande, { color: colors.primaryLight, fontFamily: 'SpaceGrotesk_700Bold' }]} placeholder="0,00 €" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={valorMovimento} onChangeText={setValorMovimento} autoFocus={true} />
 
                         <View style={styles.rowInputs}>
                             <TouchableOpacity style={[styles.btnGuardar, { backgroundColor: colors.primaryLight, flex: 1, marginRight: 10 }]} onPress={() => realizarMovimento('depositar')}>
-                                <Text style={[styles.btnGuardarTexto, { fontFamily: 'Inter_700Bold' }]}>Depositar</Text>
+                                <Text style={[styles.btnGuardarTexto, { fontFamily: 'SpaceGrotesk_700Bold' }]}>Depositar</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={[styles.btnRetirar, { flex: 1, backgroundColor: hexToRgba(colors.danger, 0.15) }]} onPress={() => realizarMovimento('retirar')}>
-                                <Text style={[styles.btnRetirarTexto, { color: colors.danger, fontFamily: 'Inter_700Bold' }]}>Retirar</Text>
+                                <Text style={[styles.btnRetirarTexto, { color: colors.danger, fontFamily: 'SpaceGrotesk_700Bold' }]}>Retirar</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -507,7 +465,5 @@ export default function GoalsScreen() {
         </SafeAreaView>
     );
 }
-
-
 
 
