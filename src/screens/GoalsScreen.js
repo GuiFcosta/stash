@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { Text, View, SafeAreaView, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, query, where } from 'firebase/firestore';
 import { db } from '../services/Firebase';
@@ -7,6 +7,7 @@ import { chaveDoMes } from '../utils/Month';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { hexToRgba } from '../utils/colors';
+import { styles } from './styles/GoalsScreenStyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import EmptyState from '../components/EmptyState';
@@ -507,41 +508,6 @@ export default function GoalsScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: { flex: 1 },
-    header: { paddingHorizontal: 24, paddingBottom: 10, alignItems: 'center' },
-    headerTitle: { fontSize: 28,  fontFamily: 'Inter_800ExtraBold',},
-    content: { padding: 20 },
-    seccao: { marginBottom: 20 },
-    seccaoTitulo: { fontSize: 13, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1, marginLeft: 4 },
-    card: { padding: 20, borderRadius: 16, marginBottom: 16, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
-    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-    titulo: { fontSize: 18, fontWeight: 'bold' },
-    valores: { fontSize: 14 },
-    guardado: { fontWeight: 'bold' },
-    badgeDono: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-    badgeDonoTexto: { fontSize: 11, fontWeight: '600' },
-    barraFundo: { height: 12, borderRadius: 6, overflow: 'hidden' },
-    barraProgresso: { height: '100%', borderRadius: 6 },
-    fab: { position: 'absolute', bottom: 20, right: 20, width: 65, height: 65, borderRadius: 35, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 8 },
-    modalFundo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
-    modalContent: { borderRadius: 25, padding: 25, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 10 },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-    modalTitle: { fontSize: 18, fontWeight: 'bold' },
-    inputNormal: { padding: 15, borderRadius: 12, fontSize: 16, marginBottom: 15 },
-    inputGrande: { fontSize: 40, fontWeight: 'bold', textAlign: 'center', marginBottom: 20, padding: 10 },
-    rowInputs: { flexDirection: 'row', justifyContent: 'space-between' },
-    btnGuardar: { padding: 16, borderRadius: 12, alignItems: 'center' },
-    btnGuardarTexto: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
-    btnRetirar: { padding: 16, borderRadius: 12, alignItems: 'center' },
-    btnRetirarTexto: { fontSize: 16, fontWeight: 'bold' },
-    labelPessoa: { fontSize: 14, fontWeight: 'bold', marginBottom: 10, marginTop: 5 },
-    tipoContainer: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-    btnTipo: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
-    btnTipoTexto: { fontSize: 15 },
-    donoContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-    btnDono: { minWidth: 90, padding: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
-    btnDonoTexto: { fontSize: 14 }
-});
+
 
 

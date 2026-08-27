@@ -1,5 +1,4 @@
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
 
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -49,7 +48,7 @@ export const scheduleWeeklyBalanceAlert = async (active) => {
         await Notifications.cancelScheduledNotificationAsync('weekly-balance');
         if (!active) return;
         
-        // Agendar para todas as Segundas-feiras (weekday: 2) às 10:00
+        // Agendar para todas as segundas-feiras (weekday: 2) às 10:00
         await Notifications.scheduleNotificationAsync({
             content: {
                 title: "Resumo Semanal 💰",

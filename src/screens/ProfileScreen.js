@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Alert, Switch, RefreshControl, Share, Image} from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import { Text, View, SafeAreaView, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Alert, Switch, RefreshControl, Share, Image} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from "../services/Firebase";
@@ -8,6 +7,7 @@ import { CATEGORIAS_DE_GASTO } from '../constants/Categories';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { hexToRgba } from '../utils/colors';
+import { styles } from './styles/ProfileScreenStyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
@@ -936,67 +936,3 @@ export default function ProfileScreen() {
         </SafeAreaView>
     );
 }
-
-const styles = StyleSheet.create({
-    container: { flex: 1 },
-    header: { paddingHorizontal: 24, paddingBottom: 10, alignItems: 'center' },
-    headerTitle: { fontSize: 28,  fontFamily: 'Inter_800ExtraBold',},
-    avatarImage: { width: 56, height: 56, borderRadius: 28, marginRight: 15 },
-    btnEditarAvatar: { position: 'absolute', bottom: -2, right: 10, width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#FFF' },
-    avatarOption: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', borderWidth: 2 },
-    content: { padding: 20 },
-    profileCard: { padding: 20, borderRadius: 16, flexDirection: 'row', alignItems: 'center', marginBottom: 25, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
-    avatar: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-    avatarText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
-    profileInfo: { flex: 1 },
-    profileName: { fontSize: 18, fontWeight: 'bold' },
-    profileEmail: { fontSize: 13, marginTop: 2 },
-    badgeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
-    roleBadge: { paddingVertical: 2, paddingHorizontal: 8, borderRadius: 10 },
-    roleBadgeTexto: { fontSize: 11, fontWeight: 'bold' },
-    grupoNomeTexto: { fontSize: 12, marginLeft: 6 },
-    sectionTitle: { fontSize: 12, fontWeight: '700', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1, marginLeft: 5 },
-    menuGroup: { borderRadius: 16, marginBottom: 25, overflow: 'hidden', borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 5, elevation: 1 },
-    menuItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
-    iconContainer: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-    menuTextContainer: { flex: 1 },
-    menuTitle: { fontSize: 15, fontWeight: '600' },
-    menuSubtitle: { fontSize: 12, marginTop: 2 },
-
-    modalFundo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
-    modalContent: { borderRadius: 25, padding: 25, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 10 },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-    modalTitle: { fontSize: 18, fontWeight: 'bold' },
-    inputLabel: { fontSize: 13, fontWeight: 'bold', marginBottom: 6 },
-    inputNormal: { padding: 14, borderRadius: 12, fontSize: 15, marginBottom: 15 },
-    btnGuardar: { padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 10 },
-    btnGuardarTexto: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
-
-    boxNomeFamilia: { marginBottom: 20 },
-    btnPequeno: { paddingHorizontal: 16, justifyContent: 'center', borderRadius: 12 },
-    btnPequenoTexto: { color: '#FFF', fontWeight: 'bold', fontSize: 13 },
-    codigoCardBox: { padding: 16, borderRadius: 16, alignItems: 'center', marginBottom: 20 },
-    codigoTitle: { fontSize: 12, fontWeight: '600' },
-    codigoValor: { fontSize: 28, fontWeight: 'bold', letterSpacing: 4, marginVertical: 6 },
-    btnAcaoCodigo: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 10 },
-    btnAcaoCodigoTexto: { color: '#FFF', fontWeight: 'bold', fontSize: 13 },
-    subSecaoTitulo: { fontSize: 14, fontWeight: 'bold', marginBottom: 12 },
-    linhaMembro: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1 },
-    miniAvatar: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-    miniAvatarText: { color: '#FFF', fontWeight: 'bold', fontSize: 13 },
-    membroNome: { fontSize: 14, fontWeight: 'bold' },
-    membroSub: { fontSize: 12, marginTop: 2 },
-
-    linhaDespesa: { flexDirection: 'row', alignItems: 'center' },
-    microLabel: { fontSize: 11, fontWeight: '600', marginBottom: 4 },
-    chipCategoriaFixa: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
-    chipCategoriaFixaTexto: { fontSize: 13 },
-    cardContaFixaEdit: { padding: 12, borderRadius: 14, marginBottom: 12, borderWidth: 1 },
-    pickerContainer: { borderRadius: 12, overflow: 'hidden', paddingHorizontal: Platform.OS === 'android' ? 5 : 0 },
-    btnRemover: { padding: 10, marginLeft: 5 },
-    btnAdicionarNova: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, borderRadius: 12, marginTop: 5, borderStyle: 'dashed', borderWidth: 1 },
-    txtAdicionarNova: { fontWeight: 'bold', fontSize: 14 },
-    linhaLimite: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1 },
-    labelCategoriaLimite: { fontSize: 14, fontWeight: '600', flex: 1 },
-    inputLimite: { padding: 10, borderRadius: 10, fontSize: 14, width: 110, textAlign: 'center' }
-});
