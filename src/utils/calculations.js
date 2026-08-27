@@ -41,3 +41,16 @@ export const agruparGastosPorCategoria = (gastosVariaveis, despesasFixasPagas) =
         return resultado;
     }, {})).sort((a, b) => b.valor - a.valor);
 };
+
+export const obterTimestamp = (gasto) => {
+    if (!gasto) return 0;
+    if (Number.isFinite(gasto.timestamp)) return gasto.timestamp;
+    if (typeof gasto.timestamp?.toMillis === 'function') return gasto.timestamp.toMillis();
+
+    const [dia, mes] = String(gasto.data || '').split('/').map(Number);
+    if (dia > 0 && mes > 0 && mes <= 12) {
+        return new Date(new Date().getFullYear(), mes - 1, dia).getTime();
+    }
+
+    return 0;
+};

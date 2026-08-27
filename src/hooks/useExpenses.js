@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
-import { collection, addDoc, query, where, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../services/Firebase';
 import { chaveDoMes } from '../utils/Month';
+import { obterTimestamp } from '../utils/calculations';
 import * as Haptics from 'expo-haptics';
 
 export function useExpenses(familyId, mesSelecionado) {
@@ -21,12 +22,12 @@ export function useExpenses(familyId, mesSelecionado) {
         const q = query(
             collection(db, 'gastos_variaveis'),
             where('familyId', '==', familyId),
-            where('mesReferencia', '==', chaveDoMes(mesSelecionado)),
-            orderBy('timestamp', 'desc')
+            where('mesReferencia', '==', chaveDoMes(mesSelecionado))
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const itens = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            itens.sort((a, b) => obterTimestamp(b) - obterTimestamp(a));
             setGastos(itens);
             setCarregando(false);
         }, (error) => {
