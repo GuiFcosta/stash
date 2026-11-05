@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, Platform } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -9,6 +9,7 @@ import { SpaceGrotesk_400Regular, SpaceGrotesk_500Medium, SpaceGrotesk_600SemiBo
 import { MonthProvider } from './src/context/MonthContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { ToastProvider } from './src/context/ToastContext';
 
 // Importar os ecrãs
 import HomeScreen from './src/screens/HomeScreen';
@@ -36,15 +37,15 @@ function MainTabs() {
             fontFamily: 'SpaceGrotesk_700Bold',
             fontSize: 10,
             textTransform: 'uppercase',
-            letterSpacing: 0.4,
+            letterSpacing: 0.3,
           },
           tabBarStyle: {
             backgroundColor: colors.cardBg,
-            borderTopColor: colors.border,
-            borderTopWidth: 2,
+            borderTopColor: colors.borderSubtle || '#E5E7EB',
+            borderTopWidth: 1,
             elevation: 12,
-            height: 60 + insets.bottom,
-            paddingBottom: Math.max(insets.bottom, 8),
+            height: 64,
+            paddingBottom: 8,
             paddingTop: 6,
           },
           tabBarIcon: ({ focused, color, size }) => {
@@ -64,7 +65,7 @@ function MainTabs() {
               <View style={{ alignItems: 'center' }}>
                 <Ionicons name={iconName} size={20} color={focused ? colors.primaryLight : color} />
                 {focused && (
-                  <View style={{ width: 12, height: 2.5, backgroundColor: colors.primaryLight, marginTop: 2 }} />
+                  <View style={{ width: 12, height: 2, backgroundColor: colors.primaryLight, marginTop: 2 }} />
                 )}
               </View>
             );
@@ -101,14 +102,15 @@ function RootNavigation() {
 }
 
 export default function App() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     SpaceGrotesk_400Regular,
     SpaceGrotesk_500Medium,
     SpaceGrotesk_600SemiBold,
     SpaceGrotesk_700Bold,
+    ...(Ionicons.font || {}),
   });
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded && !fontError) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' }}>
         <ActivityIndicator size="large" color="#10B981" />
@@ -120,9 +122,11 @@ export default function App() {
     <SafeAreaProvider>
       <AuthProvider>
         <ThemeProvider>
-          <MonthProvider>
-            <RootNavigation />
-          </MonthProvider>
+          <ToastProvider>
+            <MonthProvider>
+              <RootNavigation />
+            </MonthProvider>
+          </ToastProvider>
         </ThemeProvider>
       </AuthProvider>
     </SafeAreaProvider>

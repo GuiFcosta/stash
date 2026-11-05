@@ -1,20 +1,39 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { useColorScheme } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { lightColors, darkColors } from '../theme/Colors';
 
 const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
-    const systemScheme = useColorScheme();
-    const [modoManual, setModoManual] = useState(null); // null = seguir sistema
+    // Por padrão a aplicação carrega SEMPRE em Light Mode (false), independente do tema do dispositivo
+    const [isDarkMode, setIsDarkModeState] = useState(false);
 
-    const isDarkMode = modoManual !== null ? modoManual : systemScheme === 'dark';
+    useEffect(() => {
+        const carregarTemaSalvo = async () => {
+            try {
+                const salvo = await AsyncStorage.getItem('@stash_theme_mode');
+                if (salvo !== null) {
+                    setIsDarkModeState(salvo === 'dark');
+                }
+            } catch (e) {
+                console.warn('Erro ao carregar tema salvo:', e);
+            }
+        };
+        carregarTemaSalvo();
+    }, []);
+
+    const setIsDarkMode = async (valor) => {
+        const novoValor = typeof valor === 'function' ? valor(isDarkMode) : valor;
+        setIsDarkModeState(novoValor);
+        try {
+            await AsyncStorage.setItem('@stash_theme_mode', novoValor ? 'dark' : 'light');
+        } catch (e) {
+            console.warn('Erro ao gravar preferência de tema:', e);
+        }
+    };
 
     const toggleTheme = () => {
-        setModoManual(prev => {
-            if (prev === null) return !isDarkMode;
-            return !prev;
-        });
+        setIsDarkMode(prev => !prev);
     };
 
     const colors = isDarkMode ? darkColors : lightColors;
@@ -22,7 +41,7 @@ export function ThemeProvider({ children }) {
     return (
         <ThemeContext.Provider value={{
             isDarkMode,
-            setIsDarkMode: setModoManual,
+            setIsDarkMode,
             toggleTheme,
             colors,
         }}>

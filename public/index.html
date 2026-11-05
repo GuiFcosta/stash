@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="%LANG_ISO_CODE%">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <title>Stash</title>
+
+    <!-- iOS PWA meta tags & Icon -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Stash" />
+    <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0B0F17" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#FFFFFF" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" href="/stash-icon.png" />
+    <link rel="shortcut icon" href="/stash-icon.png" />
+
+    <!-- Google Fonts: Space Grotesk -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- The `react-native-web` recommended style reset -->
+    <style id="expo-reset">
+      html,
+      body {
+        height: 100%;
+        min-height: 100dvh;
+        min-height: -webkit-fill-available;
+        background-color: #FFFFFF;
+        overscroll-behavior-y: none;
+      }
+      body {
+        overflow: hidden;
+        margin: 0;
+        padding: 0;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #root {
+        display: flex;
+        min-height: 100dvh;
+        min-height: -webkit-fill-available;
+        height: 100%;
+        flex: 1;
+        background-color: #F8FAFC;
+      }
+      /* Mapeamento de fontes para garantir renderização idêntica ao nativo */
+      @font-face {
+        font-family: 'SpaceGrotesk_400Regular';
+        src: local('Space Grotesk'), url('https://fonts.gstatic.com/s/spacegrotesk/v16/V8mQoQDjQSkFtoMM3T6r8E7mF71Q-g.woff2') format('woff2');
+        font-weight: 400;
+      }
+      @font-face {
+        font-family: 'SpaceGrotesk_500Medium';
+        src: local('Space Grotesk Medium'), url('https://fonts.gstatic.com/s/spacegrotesk/v16/V8mQoQDjQSkFtoMM3T6r8E7mF71Q-g.woff2') format('woff2');
+        font-weight: 500;
+      }
+      @font-face {
+        font-family: 'SpaceGrotesk_600SemiBold';
+        src: local('Space Grotesk SemiBold'), url('https://fonts.gstatic.com/s/spacegrotesk/v16/V8mQoQDjQSkFtoMM3T6r8E7mF71Q-g.woff2') format('woff2');
+        font-weight: 600;
+      }
+      @font-face {
+        font-family: 'SpaceGrotesk_700Bold';
+        src: local('Space Grotesk Bold'), url('https://fonts.gstatic.com/s/spacegrotesk/v16/V8mQoQDjQSkFtoMM3T6r8E7mF71Q-g.woff2') format('woff2');
+        font-weight: 700;
+      }
+      * {
+        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+    </style>
+  </head>
+
+  <body>
+    <noscript>Precisa de ativar o JavaScript para utilizar o Stash.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Alert } from 'react-native';
 import { collection, addDoc, query, where, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../services/Firebase';
 import { chaveDoMes } from '../utils/Month';
@@ -40,7 +39,6 @@ export function useGoals(familyId) {
             return true;
         } catch (error) {
             console.error("Erro ao criar objetivo:", error);
-            Alert.alert("Erro", "Erro ao criar meta.");
             throw error;
         }
     };
@@ -52,7 +50,6 @@ export function useGoals(familyId) {
             return true;
         } catch (error) {
             console.error("Erro ao editar objetivo:", error);
-            Alert.alert("Erro", "Erro ao editar.");
             throw error;
         }
     };
@@ -64,7 +61,6 @@ export function useGoals(familyId) {
             return true;
         } catch (error) {
             console.error("Erro ao excluir objetivo:", error);
-            Alert.alert("Erro", "Erro ao apagar meta.");
             throw error;
         }
     };
@@ -78,9 +74,8 @@ export function useGoals(familyId) {
                 novoTotalGuardado = (objetivo.guardado || 0) + valorAcao;
                 valorParaHome = valorAcao;
             } else {
-                if (valorAcao > objetivo.guardado) {
-                    Alert.alert("Aviso", "Não podes retirar mais do que tens guardado!");
-                    return false;
+                if (valorAcao > (objetivo.guardado || 0)) {
+                    throw new Error("Não podes retirar mais do que tens guardado!");
                 }
                 novoTotalGuardado = (objetivo.guardado || 0) - valorAcao;
                 valorParaHome = -valorAcao;
@@ -107,19 +102,10 @@ export function useGoals(familyId) {
             });
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-            Alert.alert(
-                "Sucesso!",
-                tipo === 'depositar'
-                    ? `Guardaste ${valorAcao}€.`
-                    : `Retiraste ${valorAcao}€. O valor voltou ao Saldo Disponível.`
-            );
-
             return true;
         } catch (error) {
             console.error("Erro ao movimentar fundo:", error);
-            Alert.alert("Erro", "Erro ao movimentar dinheiro.");
-            return false;
+            throw error;
         }
     };
 

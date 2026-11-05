@@ -1,23 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Dimensions } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../services/Firebase';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../context/ToastContext';
 import { styles } from './styles/ReportsScreenStyles';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystemLegacy from 'expo-file-system/legacy';
-import { calcularGastoTotal, calcularTotalFixasPagas } from '../utils/calculations';
+import { calcularGastoTotal, calcularTotalFixasPagas } from '../utils/Calculations';
 
 const { width } = Dimensions.get('window');
 
 export default function ReportsScreen() {
     const { colors } = useTheme();
     const insets = useSafeAreaInsets();
+    const toast = useToast();
     const { familyData } = useAuth();
     
     const [carregando, setCarregando] = useState(true);
@@ -80,7 +82,7 @@ export default function ReportsScreen() {
             setDadosMensais(mesesFiltrados);
         } catch (error) {
             console.error("Erro ao carregar relatório:", error);
-            Alert.alert("Erro", "Não foi possível carregar os dados do relatório.");
+            toast.error("Não foi possível carregar os dados do relatório.", "Erro");
         } finally {
             setCarregando(false);
         }
@@ -100,10 +102,11 @@ export default function ReportsScreen() {
             
             if (await Sharing.isAvailableAsync()) {
                 await Sharing.shareAsync(path, { mimeType: 'text/csv', dialogTitle: 'Exportar Relatório CSV' });
+                toast.success("Relatório CSV gerado e partilhado com sucesso!", "Exportação Concluída");
             }
         } catch (err) {
             console.error("Erro ao exportar CSV:", err);
-            Alert.alert("Erro", "Falha ao gerar o ficheiro CSV.");
+            toast.error("Falha ao gerar o ficheiro CSV.", "Erro");
         }
     };
 
@@ -157,10 +160,11 @@ export default function ReportsScreen() {
             const { uri } = await Print.printToFileAsync({ html });
             if (await Sharing.isAvailableAsync()) {
                 await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Exportar Relatório PDF' });
+                toast.success("Relatório PDF gerado e partilhado com sucesso!", "Exportação Concluída");
             }
         } catch (err) {
             console.error("Erro ao exportar PDF:", err);
-            Alert.alert("Erro", "Falha ao gerar o ficheiro PDF.");
+            toast.error("Falha ao gerar o ficheiro PDF.", "Erro");
         }
     };
 

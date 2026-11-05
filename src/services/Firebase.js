@@ -1,6 +1,7 @@
+import { Platform } from 'react-native';
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import { getAuth, initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
@@ -17,13 +18,18 @@ const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 
 let appAuth;
-try {
-    appAuth = initializeAuth(app, {
-        persistence: getReactNativePersistence(AsyncStorage)
-    });
-} catch (e) {
-    const { getAuth } = require('firebase/auth');
+if (Platform.OS === 'web') {
+    // Na Web, o Firebase Auth gere a persistência via IndexedDB/localStorage nativo do browser.
+    // Usar getReactNativePersistence na Web bloqueia a escuta onAuthStateChanged.
     appAuth = getAuth(app);
+} else {
+    try {
+        appAuth = initializeAuth(app, {
+            persistence: getReactNativePersistence(AsyncStorage)
+        });
+    } catch (e) {
+        appAuth = getAuth(app);
+    }
 }
 
 export const auth = appAuth;

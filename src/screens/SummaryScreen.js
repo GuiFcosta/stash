@@ -19,8 +19,8 @@ import {
     agruparGastosPorCategoria,
     despesaFixaFoiPagaNoMes,
     obterQuemPagouFixoNoMes
-} from '../utils/calculations';
-import { formatarMoeda } from '../utils/formatters';
+} from '../utils/Calculations';
+import { formatarMoeda } from '../utils/Formatters';
 
 export default function SummaryScreen() {
     const { colors } = useTheme();

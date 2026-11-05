@@ -5,8 +5,9 @@ import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from "../services/Firebase";
 import { CATEGORIAS_DE_GASTO } from '../constants/Categories';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
-import { hexToRgba } from '../utils/colors';
+import { hexToRgba } from '../utils/Colors';
 import { styles } from './styles/ProfileScreenStyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -14,6 +15,7 @@ import * as Haptics from 'expo-haptics';
 export default function ProfileScreen() {
     const { colors, isDarkMode, toggleTheme } = useTheme();
     const insets = useSafeAreaInsets();
+    const toast = useToast();
     const {
         user,
         userProfile,
@@ -62,7 +64,7 @@ export default function ProfileScreen() {
         const { requestNotificationPermissions, scheduleFixedExpensesReminder } = require('../services/NotificationService');
         const permitido = await requestNotificationPermissions();
         if (!permitido && valor) {
-            Alert.alert("Permissão Negada", "Ativa as notificações nas definições do teu telemóvel para receberes avisos do Stash.");
+            toast.warning("Ativa as notificações nas definições do telemóvel para receberes avisos do Stash.", "Permissão Negada");
             return;
         }
         setLembreteContas(valor);
@@ -74,7 +76,7 @@ export default function ProfileScreen() {
         const { requestNotificationPermissions, scheduleWeeklyBalanceAlert } = require('../services/NotificationService');
         const permitido = await requestNotificationPermissions();
         if (!permitido && valor) {
-            Alert.alert("Permissão Negada", "Ativa as notificações nas definições do teu telemóvel para receberes avisos do Stash.");
+            toast.warning("Ativa as notificações nas definições do telemóvel para receberes avisos do Stash.", "Permissão Negada");
             return;
         }
         setAlertaSemanal(valor);
@@ -106,7 +108,7 @@ export default function ProfileScreen() {
         try {
             const rendaNum = converterEmNumero(minhaRenda);
             if (!Number.isFinite(rendaNum) || rendaNum < 0) {
-                Alert.alert("Aviso", "Indica um rendimento válido.");
+                toast.warning("Indica um rendimento válido.", "Valor Inválido");
                 return;
             }
 
@@ -122,9 +124,10 @@ export default function ProfileScreen() {
             });
 
             setModalRendaVisivel(false);
+            toast.success("Rendimento atualizado com sucesso!", "Rendimento Guardado");
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (error) {
-            Alert.alert("Erro", "Erro ao guardar o teu rendimento.");
+            toast.error("Erro ao guardar o teu rendimento.", "Erro");
         }
     };
 
@@ -144,9 +147,25 @@ export default function ProfileScreen() {
     };
 
     const atualizarItemFixa = (id, campo, novoTexto) => {
+        let valorFinal = novoTexto;
+
+        if (campo === 'diaVencimento') {
+            const apenasDigitos = String(novoTexto).replace(/[^0-9]/g, '');
+            if (apenasDigitos === '') {
+                valorFinal = '';
+            } else {
+                const numero = parseInt(apenasDigitos, 10);
+                if (isNaN(numero) || numero < 1 || numero > 31) {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                    return;
+                }
+                valorFinal = String(numero);
+            }
+        }
+
         const novaLista = listaFixas.map(item => {
             if (item.id === id) {
-                return { ...item, [campo]: novoTexto };
+                return { ...item, [campo]: valorFinal };
             }
             return item;
         });
@@ -172,24 +191,38 @@ export default function ProfileScreen() {
     const guardarFixas = async () => {
         if (!familyData) return;
         try {
-            const listaLimpa = listaFixas
-                .filter(item => (item.nome && item.nome.trim() !== '') || (item.valorString && item.valorString.trim() !== ''))
-                .map(item => {
-                    const diaNum = parseInt(item.diaVencimento, 10);
-                    return {
-                        id: String(item.id),
-                        nome: item.nome?.trim() || 'Sem Nome',
-                        tipo: item.tipo || 'Fixo',
-                        categoria: item.categoria || 'Casa',
-                        valor: converterEmNumero(item.valorString) || 0,
-                        diaVencimento: (!isNaN(diaNum) && diaNum >= 1 && diaNum <= 31) ? diaNum : (item.diaVencimento?.trim() || null),
-                        pago: Boolean(item.pago),
-                        pagamentos: item.pagamentos || {}
-                    };
-                });
+            const itensPreenchidos = listaFixas.filter(
+                item => (item.nome && item.nome.trim() !== '') || (item.valorString && item.valorString.trim() !== '')
+            );
+
+            for (const item of itensPreenchidos) {
+                const diaTexto = String(item.diaVencimento || '').trim();
+                if (diaTexto !== '') {
+                    const diaNum = Number(diaTexto);
+                    if (!Number.isInteger(diaNum) || diaNum < 1 || diaNum > 31) {
+                        toast.warning(`O dia de pagamento de "${item.nome?.trim() || 'Sem Nome'}" deve ser entre 1 e 31.`, "Data Inválida");
+                        return;
+                    }
+                }
+            }
+
+            const listaLimpa = itensPreenchidos.map(item => {
+                const diaTexto = String(item.diaVencimento || '').trim();
+                const diaNum = diaTexto !== '' ? parseInt(diaTexto, 10) : null;
+                return {
+                    id: String(item.id),
+                    nome: item.nome?.trim() || 'Sem Nome',
+                    tipo: item.tipo || 'Fixo',
+                    categoria: item.categoria || 'Casa',
+                    valor: converterEmNumero(item.valorString) || 0,
+                    diaVencimento: (diaNum !== null && diaNum >= 1 && diaNum <= 31) ? diaNum : null,
+                    pago: Boolean(item.pago),
+                    pagamentos: item.pagamentos || {}
+                };
+            });
 
             if (listaLimpa.some(item => !Number.isFinite(item.valor) || item.valor < 0)) {
-                Alert.alert("Aviso", "Cada conta deve ter um valor numérico válido.");
+                toast.warning("Cada conta deve ter um valor numérico válido.", "Valor Inválido");
                 return;
             }
 
@@ -198,9 +231,10 @@ export default function ProfileScreen() {
             });
 
             setModalFixasVisivel(false);
+            toast.success("Despesas mensais guardadas com sucesso!", "Despesas Guardadas");
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (error) {
-            Alert.alert("Erro", "Erro ao guardar as despesas fixas.");
+            toast.error("Erro ao guardar as despesas fixas.", "Erro");
         }
     };
 
@@ -237,9 +271,10 @@ export default function ProfileScreen() {
             });
 
             setModalLimitesVisivel(false);
+            toast.success("Limites por categoria guardados!", "Limites Atualizados");
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (error) {
-            Alert.alert("Erro", "Erro ao guardar limites.");
+            toast.error("Erro ao guardar limites.", "Erro");
         }
     };
 
@@ -258,7 +293,7 @@ export default function ProfileScreen() {
     // 5. ENTRAR NOUTRA FAMÍLIA POR CÓDIGO
     const handleJuntarPorCodigo = async () => {
         if (!codigoInput.trim()) {
-            Alert.alert("Aviso", "Introduz um código de convite.");
+            toast.warning("Introduz um código de convite.", "Código Obrigatório");
             return;
         }
         const sucesso = await joinFamilyByCode(codigoInput);
@@ -270,9 +305,12 @@ export default function ProfileScreen() {
 
     // 6. ALTERAR NOME DA FAMÍLIA
     const guardarNomeFamilia = async () => {
-        if (!editNomeFamilia.trim()) return;
+        if (!editNomeFamilia.trim()) {
+            toast.warning("Indica o nome da família.", "Nome Obrigatório");
+            return;
+        }
         await updateFamilyName(editNomeFamilia);
-        Alert.alert("Sucesso", "Nome da família atualizado.");
+        toast.success("Nome da família atualizado!", "Família Atualizada");
     };
 
     // 7. EDITAR PERFIL (NOME E FOTO)
@@ -284,7 +322,7 @@ export default function ProfileScreen() {
 
     const guardarPerfil = async () => {
         if (!nomeInput.trim()) {
-            Alert.alert("Aviso", "O nome de utilizador não pode estar vazio.");
+            toast.warning("O nome de utilizador não pode estar vazio.", "Nome Obrigatório");
             return;
         }
         const sucesso = await updateUserProfile({
@@ -293,6 +331,7 @@ export default function ProfileScreen() {
         });
         if (sucesso) {
             setModalPerfilVisivel(false);
+            toast.success("Perfil atualizado com sucesso!", "Perfil Guardado");
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
     };
@@ -788,11 +827,11 @@ export default function ProfileScreen() {
                                                     onChangeText={(texto) => atualizarItemFixa(item.id, 'valorString', texto)}
                                                 />
                                             </View>
-                                            <View style={{ width: 55, marginRight: 4 }}>
-                                                <Text style={[styles.microLabel, { color: colors.textMuted }]}>Dia</Text>
+                                            <View style={{ width: 62, marginRight: 4 }}>
+                                                <Text style={[styles.microLabel, { color: colors.textMuted }]}>Dia (1-31)</Text>
                                                 <TextInput
                                                     style={[styles.inputNormal, { backgroundColor: colors.cardBg, color: colors.textDark, marginBottom: 0, textAlign: 'center', fontSize: 14 }]}
-                                                    placeholder="Dia"
+                                                    placeholder="1-31"
                                                     placeholderTextColor={colors.textDisabled}
                                                     keyboardType="number-pad"
                                                     maxLength={2}

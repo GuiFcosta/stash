@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { obterMetaCategoria } from '../constants/Categories';
-import { hexToRgba } from '../utils/colors';
+import { hexToRgba } from '../utils/Colors';
 import { styles } from './styles/ExpenseCardStyles';
 
 export default function ExpenseCard({ expense, onTouch }) {

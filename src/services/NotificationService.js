@@ -1,21 +1,30 @@
 import * as Notifications from 'expo-notifications';
 
-Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-    }),
-});
+try {
+    Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+            shouldShowAlert: true,
+            shouldPlaySound: true,
+            shouldSetBadge: false,
+        }),
+    });
+} catch (error) {
+    console.warn('Erro ao configurar notification handler:', error);
+}
 
 export const requestNotificationPermissions = async () => {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
+    try {
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        if (existingStatus !== 'granted') {
+            const { status } = await Notifications.requestPermissionsAsync();
+            finalStatus = status;
+        }
+        return finalStatus === 'granted';
+    } catch (error) {
+        console.warn('Erro ao pedir permissões de notificação:', error);
+        return false;
     }
-    return finalStatus === 'granted';
 };
 
 export const scheduleFixedExpensesReminder = async (active) => {
@@ -69,5 +78,9 @@ export const scheduleWeeklyBalanceAlert = async (active) => {
 };
 
 export const cancelAllNotifications = async () => {
-    await Notifications.cancelAllScheduledNotificationsAsync();
+    try {
+        await Notifications.cancelAllScheduledNotificationsAsync();
+    } catch (error) {
+        console.warn('Erro ao cancelar notificações:', error);
+    }
 };

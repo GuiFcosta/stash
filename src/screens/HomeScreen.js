@@ -15,7 +15,8 @@ import { alterarMes, chaveDoMes, inicioDoMes, rotuloDoMes } from '../utils/Month
 import { useMonth } from '../context/MonthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { hexToRgba } from '../utils/colors';
+import { useToast } from '../context/ToastContext';
+import { hexToRgba } from '../utils/Colors';
 import { useExpenses } from '../hooks/useExpenses';
 import { useFixedExpenses } from '../hooks/useFixedExpenses';
 import {
@@ -24,14 +25,15 @@ import {
     agruparGastosPorCategoria,
     despesaFixaFoiPagaNoMes,
     obterQuemPagouFixoNoMes
-} from '../utils/calculations';
-import { formatarMoeda } from '../utils/formatters';
+} from '../utils/Calculations';
+import { formatarMoeda } from '../utils/Formatters';
 import { styles } from "./styles/HomeScreenStyles";
 
 export default function HomeScreen() {
     const { colors, isDarkMode } = useTheme();
     const { mesSelecionado, setMesSelecionado, mesAnteriorDisponivel, setMesAnteriorDisponivel } = useMonth();
     const { user, userProfile, familyData } = useAuth();
+    const toast = useToast();
     const insets = useSafeAreaInsets();
 
     const [atualizando, setAtualizando] = useState(false);
@@ -161,7 +163,7 @@ export default function HomeScreen() {
 
     const guardarGasto = async () => {
         if (!novoValor || !novaLoja || !novaCategoria) {
-            Alert.alert("Aviso", "Por favor, preenche todos os campos!");
+            toast.warning("Por favor, preenche todos os campos!", "Campos em Falta");
             return;
         }
         if (!familyId) return;
@@ -169,7 +171,7 @@ export default function HomeScreen() {
         try {
             const valorFormatado = Number(novoValor.trim().replace(',', '.'));
             if (!Number.isFinite(valorFormatado) || valorFormatado <= 0) {
-                Alert.alert("Aviso", "Indica um valor superior a zero.");
+                toast.warning("Indica um valor superior a zero.", "Valor Inválido");
                 return;
             }
             const dataAtual = new Date();
@@ -192,15 +194,17 @@ export default function HomeScreen() {
 
             if (gastoEmEdicao) {
                 await editarGasto(gastoEmEdicao.id, dadosGasto);
+                toast.success(`Despesa em ${novaLoja} atualizada.`, "Atualizado");
             } else {
                 await adicionarGasto(dadosGasto);
+                toast.success(`Despesa de ${valorFormatado.toFixed(2)} € registada.`, "Despesa Registada");
             }
 
             setNovaLoja(''); setNovoValor(''); setNovaCategoria(CATEGORIAS_DE_GASTO[0]); setQuemGastou(userProfile?.nome || 'Eu');
             setGastoEmEdicao(null); setModalVisivel(false);
 
         } catch (error) {
-            // Tratado no hook
+            toast.error("Ocorreu um erro ao guardar a despesa.", "Erro");
         }
     };
 
@@ -228,8 +232,9 @@ export default function HomeScreen() {
                     onPress: async () => {
                         try {
                             await eliminarGasto(despesa.id);
+                            toast.info(`Despesa em ${despesa.loja} apagada.`, "Despesa Removida");
                         } catch (error) {
-                            // Tratado no hook
+                            toast.error("Não foi possível apagar a despesa.", "Erro");
                         }
                     }
                 }
@@ -257,7 +262,7 @@ export default function HomeScreen() {
                 {
                     backgroundColor: colors.cardBg,
                     borderBottomColor: colors.border,
-                    paddingTop: Math.max(insets.top + 6, 14),
+                    paddingTop: Platform.OS === 'web' ? 'calc(env(safe-area-inset-top, 0px) + 14px)' : Math.max(insets.top + 6, 14),
                 }
             ]}>
                 <View style={styles.headerBrandRow}>
@@ -305,6 +310,7 @@ export default function HomeScreen() {
 
             <ScrollView
                 style={styles.scrollContainer}
+                contentContainerStyle={{ paddingBottom: 120 }}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
                     <RefreshControl

@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Text, View, SafeAreaView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { Text, View, SafeAreaView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../context/ToastContext';
 import { styles } from './styles/AuthScreenStyles';
 
 export default function AuthScreen() {
     const { colors, isDarkMode } = useTheme();
     const { login, signup, loading } = useAuth();
+    const toast = useToast();
 
     const [abaAtiva, setAbaAtiva] = useState('login'); // 'login' | 'signup'
 
@@ -23,7 +25,7 @@ export default function AuthScreen() {
 
     const handleLogin = async () => {
         if (!loginEmail.trim() || !loginPassword.trim()) {
-            Alert.alert("Aviso", "Preenche o e-mail e a palavra-passe.");
+            toast.warning("Preenche o e-mail e a palavra-passe.", "Campos Obrigatórios");
             return;
         }
         try {
@@ -35,7 +37,7 @@ export default function AuthScreen() {
 
     const handleSignup = async () => {
         if (!signupNome.trim() || !signupEmail.trim() || !signupPassword.trim()) {
-            Alert.alert("Aviso", "Preenche o teu nome, e-mail e palavra-passe.");
+            toast.warning("Preenche o teu nome, e-mail e palavra-passe.", "Campos Obrigatórios");
             return;
         }
         try {

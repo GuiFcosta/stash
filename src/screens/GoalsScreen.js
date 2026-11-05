@@ -3,18 +3,20 @@ import { Text, View, SafeAreaView, ScrollView, TouchableOpacity, Modal, TextInpu
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { hexToRgba } from '../utils/colors';
+import { hexToRgba } from '../utils/Colors';
 import { useGoals } from '../hooks/useGoals';
 import { styles } from './styles/GoalsScreenStyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import EmptyState from '../components/EmptyState';
 import { SkeletonGoalCard } from '../components/SkeletonLoader';
+import { useToast } from '../context/ToastContext';
 
 export default function GoalsScreen() {
     const { colors } = useTheme();
     const { user, userProfile, familyData } = useAuth();
     const insets = useSafeAreaInsets();
+    const toast = useToast();
 
     const [objetivoSelecionado, setObjetivoSelecionado] = useState(null);
 
@@ -55,13 +57,16 @@ export default function GoalsScreen() {
     }, [userProfile]);
 
     const guardarNovoObjetivo = async () => {
-        if (!novoTitulo || !novaMeta) { Alert.alert("Aviso", "Preenche o título e a meta!"); return; }
+        if (!novoTitulo || !novaMeta) {
+            toast.warning("Preenche o título e a meta!", "Campos Obrigatórios");
+            return;
+        }
         if (!familyId) return;
 
         const meta = Number(novaMeta.trim().replace(',', '.'));
         const guardado = novoGuardado ? Number(novoGuardado.trim().replace(',', '.')) : 0;
         if (!Number.isFinite(meta) || !Number.isFinite(guardado) || meta <= 0 || guardado < 0) {
-            Alert.alert("Aviso", "Indica valores válidos para a meta e o montante guardado.");
+            toast.warning("Indica valores válidos para a meta e o montante guardado.", "Valor Inválido");
             return;
         }
         try {
@@ -75,12 +80,13 @@ export default function GoalsScreen() {
                 dono: tipoObjetivo === 'individual' ? donoObjetivo : null,
                 donoUid: tipoObjetivo === 'individual' ? (membroDono?.uid || user?.uid || '') : null
             });
+            toast.success(`Meta "${novoTitulo.trim()}" criada com sucesso!`, "Meta Criada");
             setNovoTitulo(''); setNovaMeta(''); setNovoGuardado(''); setNovoIcone('');
             setTipoObjetivo('familiar');
             setDonoObjetivo(userProfile?.nome || 'Eu');
             setModalCriarVisivel(false);
         } catch (error) {
-            // Tratado no hook
+            toast.error("Erro ao criar o objetivo.", "Erro");
         }
     };
 
@@ -95,10 +101,13 @@ export default function GoalsScreen() {
     };
 
     const guardarEdicao = async () => {
-        if (!editTitulo || !editMeta) return;
+        if (!editTitulo || !editMeta) {
+            toast.warning("Preenche o título e a meta.", "Campos Obrigatórios");
+            return;
+        }
         const meta = Number(editMeta.trim().replace(',', '.'));
         if (!Number.isFinite(meta) || meta <= 0) {
-            Alert.alert("Aviso", "Indica uma meta válida superior a zero.");
+            toast.warning("Indica uma meta válida superior a zero.", "Valor Inválido");
             return;
         }
         try {
@@ -111,10 +120,11 @@ export default function GoalsScreen() {
                 dono: editTipo === 'individual' ? editDono : null,
                 donoUid: editTipo === 'individual' ? (membroDonoEdit?.uid || objetivoSelecionado.donoUid || '') : null
             });
+            toast.success(`Meta "${editTitulo.trim()}" atualizada!`, "Meta Atualizada");
             setModalEditarVisivel(false);
             setObjetivoSelecionado(null);
         } catch (error) {
-            // Tratado no hook
+            toast.error("Erro ao atualizar o objetivo.", "Erro");
         }
     };
 
@@ -124,7 +134,11 @@ export default function GoalsScreen() {
         try {
             const valorAcao = Number(valorMovimento.trim().replace(',', '.'));
             if (!Number.isFinite(valorAcao) || valorAcao <= 0) {
-                Alert.alert("Aviso", "Indica um valor superior a zero.");
+                toast.warning("Indica um valor superior a zero.", "Valor Inválido");
+                return;
+            }
+            if (tipo === 'retirar' && valorAcao > (objetivoSelecionado.guardado || 0)) {
+                toast.warning("Não podes retirar mais do que tens guardado!", "Saldo Insuficiente");
                 return;
             }
 
@@ -137,12 +151,18 @@ export default function GoalsScreen() {
             );
 
             if (sucesso) {
+                toast.success(
+                    tipo === 'depositar'
+                        ? `Depositado ${valorAcao.toFixed(2)} € em "${objetivoSelecionado.titulo}".`
+                        : `Retirado ${valorAcao.toFixed(2)} € de "${objetivoSelecionado.titulo}".`,
+                    tipo === 'depositar' ? "Depósito Efetuado" : "Levantamento Efetuado"
+                );
                 setValorMovimento('');
                 setObjetivoSelecionado(null);
                 setModalMovimentoVisivel(false);
             }
         } catch (error) {
-            // Tratado no hook
+            toast.error(error?.message || "Erro ao movimentar o fundo.", "Erro");
         }
     };
 
@@ -161,8 +181,9 @@ export default function GoalsScreen() {
                     onPress: async () => {
                         try {
                             await excluirObjetivo(objetivo.id);
+                            toast.info(`Meta "${objetivo.titulo}" apagada.`, "Meta Removida");
                         } catch (error) {
-                            // Tratado no hook
+                            toast.error("Erro ao apagar a meta.", "Erro");
                         }
                     }
                 }

@@ -3,7 +3,7 @@ import { Alert } from 'react-native';
 import { collection, addDoc, query, where, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../services/Firebase';
 import { chaveDoMes } from '../utils/Month';
-import { obterTimestamp } from '../utils/calculations';
+import { obterTimestamp } from '../utils/Calculations';
 import * as Haptics from 'expo-haptics';
 
 export function useExpenses(familyId, mesSelecionado) {

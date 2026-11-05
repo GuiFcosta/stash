@@ -41,7 +41,10 @@ export function AuthProvider({ children }) {
         let unsubUserDoc = null;
         let unsubFamilyDoc = null;
 
+        const safetyTimer = setTimeout(() => { setLoading(false); }, 3500);
+
         const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+            clearTimeout(safetyTimer);
             setUser(firebaseUser);
 
             if (unsubUserDoc) unsubUserDoc();
@@ -88,6 +91,7 @@ export function AuthProvider({ children }) {
         });
 
         return () => {
+            clearTimeout(safetyTimer);
             unsubAuth();
             if (unsubUserDoc) unsubUserDoc();
             if (unsubFamilyDoc) unsubFamilyDoc();
