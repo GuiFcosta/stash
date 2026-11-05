@@ -1,17 +1,93 @@
 import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
-    graficoContainer: { width: 150, height: 150, alignSelf: 'center', justifyContent: 'center', alignItems: 'center', marginBottom: 18 },
-    centroGrafico: { position: 'absolute', alignItems: 'center' },
-    total: { fontSize: 20, fontWeight: '700' },
-    totalLabel: { fontSize: 12 },
-    legenda: { gap: 12 },
-    blocoCategoria: { gap: 4 },
-    linhaLegenda: { flexDirection: 'row', alignItems: 'center' },
-    corLegenda: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
-    nomeCategoria: { flex: 1, fontSize: 14, fontWeight: '500' },
-    valorCategoria: { fontSize: 13, fontWeight: '600' },
-    barraFundo: { height: 6, borderRadius: 3, overflow: 'hidden', marginLeft: 18 },
-    barraProgresso: { height: '100%', borderRadius: 3 },
-    semDados: { fontStyle: 'italic', textAlign: 'center', paddingVertical: 20 },
+    totalBox: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderWidth: 1,
+        borderRadius: 2,
+        marginBottom: 16,
+    },
+    totalBoxLabel: {
+        fontSize: 11,
+        fontFamily: 'SpaceGrotesk_700Bold',
+        letterSpacing: 0.8,
+        textTransform: 'uppercase',
+    },
+    totalBoxValue: {
+        fontSize: 15,
+        fontFamily: 'SpaceGrotesk_700Bold',
+    },
+    totalBoxRubricas: {
+        fontSize: 12,
+        fontFamily: 'SpaceGrotesk_600SemiBold',
+    },
+    legenda: {
+        gap: 14,
+    },
+    blocoCategoria: {
+        gap: 6,
+    },
+    linhaLegenda: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    leftRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    rightRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    corLegenda: {
+        width: 10,
+        height: 10,
+        borderRadius: 1,
+        marginRight: 8,
+    },
+    nomeCategoria: {
+        fontSize: 13,
+        fontFamily: 'SpaceGrotesk_700Bold',
+    },
+    valorCategoria: {
+        fontSize: 13,
+        fontFamily: 'SpaceGrotesk_700Bold',
+    },
+    limiteTexto: {
+        fontSize: 12,
+        fontFamily: 'SpaceGrotesk_500Medium',
+    },
+    pctBadge: {
+        paddingHorizontal: 5,
+        paddingVertical: 1,
+        borderWidth: 1,
+        borderRadius: 2,
+        marginLeft: 4,
+    },
+    pctBadgeText: {
+        fontSize: 10,
+        fontFamily: 'SpaceGrotesk_700Bold',
+    },
+    barraFundo: {
+        height: 10,
+        borderRadius: 1,
+        borderWidth: 1,
+        overflow: 'hidden',
+        padding: 1,
+    },
+    barraProgresso: {
+        height: '100%',
+    },
+    semDados: {
+        fontFamily: 'SpaceGrotesk_400Regular',
+        textAlign: 'center',
+        paddingVertical: 20,
+    },
 });

@@ -2,14 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Text, View, SafeAreaView, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Alert, RefreshControl, LayoutAnimation } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import EmptyState from '../components/EmptyState';
 import { SkeletonExpenseCard, SkeletonHeader } from '../components/SkeletonLoader';
 import ExpenseCard from '../components/ExpenseCard';
 import CategoryDonutChart from '../components/CategoryDonutChart';
-import { CATEGORIAS_DE_GASTO } from '../constants/Categories';
+import { CATEGORIAS_DE_GASTO, obterMetaCategoria } from '../constants/Categories';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../services/Firebase';
 import { alterarMes, chaveDoMes, inicioDoMes, rotuloDoMes } from '../utils/Month';
@@ -36,6 +35,7 @@ export default function HomeScreen() {
     const insets = useSafeAreaInsets();
 
     const [atualizando, setAtualizando] = useState(false);
+    const [saldoOculto, setSaldoOculto] = useState(false);
 
     const [modalVisivel, setModalVisivel] = useState(false);
     const [novoValor, setNovoValor] = useState('');
@@ -121,7 +121,9 @@ export default function HomeScreen() {
 
     const totalEssenciais = calcularTotalFixasPagas(despesasEssenciais, chaveMesSelecionado);
     const totalVariaveis = calcularGastoTotal(gastosVariaveis);
-    const saldoDisponivel = totalRenda - totalEssenciais - totalVariaveis;
+    const totalConsumido = totalEssenciais + totalVariaveis;
+    const saldoDisponivel = totalRenda - totalConsumido;
+    const pctConsumida = totalRenda > 0 ? Math.min(Math.max((totalConsumido / totalRenda) * 100, 0), 100) : 0;
     const podeAvancarMes = mesSelecionado < inicioDoMes(new Date());
 
     const despesasFixasPagasNoMes = despesasEssenciais.filter(despesaFoiPagaNoMes);
@@ -145,6 +147,16 @@ export default function HomeScreen() {
             userProfile?.nome || user?.displayName || 'Eu',
             user?.uid || ''
         );
+    };
+
+    const abrirModalNovoGasto = () => {
+        if (!eMesAtual) return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setGastoEmEdicao(null);
+        setNovaLoja('');
+        setNovoValor('');
+        setNovaCategoria(CATEGORIAS_DE_GASTO[0]);
+        setModalVisivel(true);
     };
 
     const guardarGasto = async () => {
@@ -227,14 +239,42 @@ export default function HomeScreen() {
 
     const nomesMembros = membrosFamilia.map(m => m.nome);
     const listaFiltrosPessoa = ['Todos', ...nomesMembros];
+    const nomeFamilia = familyData?.nome || 'Orçamento Familiar';
+    const iniciaisFamilia = nomeFamilia
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(p => p[0].toUpperCase())
+        .join('') || 'ST';
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-            <StatusBar style={isDarkMode ? "light" : "light"} />
+            <StatusBar style={isDarkMode ? "light" : "dark"} />
 
-            <View style={[styles.header, { backgroundColor: isDarkMode ? colors.cardBg : colors.headerBg, paddingTop: Math.max(insets.top + 4, 12) }]}>
-                <Text style={styles.headerTitle}>{familyData?.nome || 'Orçamento Familiar'}</Text>
-                <View style={styles.seletorMes}>
+            {/* TOP APP BAR: Swiss Minimal Header */}
+            <View style={[
+                styles.header,
+                {
+                    backgroundColor: colors.cardBg,
+                    borderBottomColor: colors.border,
+                    paddingTop: Math.max(insets.top + 6, 14),
+                }
+            ]}>
+                <View style={styles.headerBrandRow}>
+                    <View style={[styles.monogramBox, { backgroundColor: colors.primary }]}>
+                        <Text style={styles.monogramText}>{iniciaisFamilia}</Text>
+                    </View>
+                    <View>
+                        <Text style={[styles.headerOverline, { color: colors.textLight }]}>
+                            ORÇAMENTO PARTILHADO
+                        </Text>
+                        <Text style={[styles.headerTitle, { color: colors.textDark }]} numberOfLines={1}>
+                            {nomeFamilia}
+                        </Text>
+                    </View>
+                </View>
+
+                <View style={[styles.seletorMes, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
                     <TouchableOpacity
                         accessibilityLabel="Ver mês anterior"
                         disabled={!mesAnteriorDisponivel}
@@ -244,9 +284,11 @@ export default function HomeScreen() {
                         }}
                         style={[styles.botaoMes, !mesAnteriorDisponivel && styles.botaoMesDesativado]}
                     >
-                        <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+                        <Ionicons name="chevron-back" size={16} color={colors.textDark} />
                     </TouchableOpacity>
-                    <Text style={styles.rotuloMes}>{rotuloDoMes(mesSelecionado)}</Text>
+                    <Text style={[styles.rotuloMes, { color: colors.textDark }]}>
+                        {rotuloDoMes(mesSelecionado)}
+                    </Text>
                     <TouchableOpacity
                         accessibilityLabel="Ver mês seguinte"
                         disabled={!podeAvancarMes}
@@ -256,22 +298,9 @@ export default function HomeScreen() {
                         }}
                         style={[styles.botaoMes, !podeAvancarMes && styles.botaoMesDesativado]}
                     >
-                        <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
+                        <Ionicons name="chevron-forward" size={16} color={colors.textDark} />
                     </TouchableOpacity>
                 </View>
-
-                {carregando ? (
-                    <SkeletonHeader />
-                ) : (
-                    <>
-                        <Text style={styles.saldoText}>{saldoDisponivel.toFixed(2)} €</Text>
-                        <Text style={styles.saldoLabel}>Disponível este Mês</Text>
-                        <View style={styles.resumoRow}>
-                            <Text style={styles.resumoText}>Ganhos: +{totalRenda.toFixed(0)}€</Text>
-                            <Text style={styles.resumoText}>Fixo: -{totalEssenciais.toFixed(0)}€</Text>
-                        </View>
-                    </>
-                )}
             </View>
 
             <ScrollView
@@ -285,7 +314,164 @@ export default function HomeScreen() {
                     />
                 }
             >
-                {/* SECÇÃO DAS DESPESAS FIXAS (COM ACORDEÃO) */}
+                {/* BARRA DE AÇÃO RÁPIDA NO TOPO (Swiss Grid High-Contrast) */}
+                <View style={styles.topSection}>
+                    <TouchableOpacity
+                        activeOpacity={0.85}
+                        disabled={!eMesAtual}
+                        onPress={abrirModalNovoGasto}
+                        style={[
+                            styles.quickActionBanner,
+                            {
+                                backgroundColor: isDarkMode ? colors.cardBg : '#111827',
+                                borderColor: colors.border,
+                            },
+                            !eMesAtual && styles.fabDesativado
+                        ]}
+                    >
+                        <View style={styles.quickActionLeft}>
+                            <View style={[styles.quickActionIconBox, { backgroundColor: '#10B981' }]}>
+                                <Ionicons name="flash" size={20} color="#FFFFFF" />
+                            </View>
+                            <View>
+                                <Text style={styles.quickActionOverline}>AÇÃO RÁPIDA</Text>
+                                <Text style={styles.quickActionTitle}>Adicionar Movimento</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.quickActionBtn}>
+                            <Ionicons name="add" size={16} color="#FFFFFF" />
+                            <Text style={styles.quickActionBtnText}>NOVA DESPESA</Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    {/* 1. HERO CARD SWISS BENTO */}
+                    {carregando ? (
+                        <SkeletonHeader />
+                    ) : (
+                        <View style={[
+                            styles.heroBentoCard,
+                            {
+                                backgroundColor: colors.cardBg,
+                                borderColor: colors.border,
+                            }
+                        ]}>
+                            <View style={[styles.heroTopRow, { borderBottomColor: colors.borderSubtle || colors.border }]}>
+                                <View style={styles.heroLabelGroup}>
+                                    <Text style={[styles.heroLabel, { color: colors.textLight }]}>
+                                        SALDO DISPONÍVEL FAMILIAR
+                                    </Text>
+                                    <View style={styles.liveBadge}>
+                                        <Text style={styles.liveBadgeText}>AO VIVO</Text>
+                                    </View>
+                                </View>
+                                <TouchableOpacity
+                                    accessibilityLabel={saldoOculto ? "Mostrar saldo" : "Ocultar saldo"}
+                                    onPress={() => {
+                                        Haptics.selectionAsync();
+                                        setSaldoOculto(!saldoOculto);
+                                    }}
+                                    style={{ padding: 4 }}
+                                >
+                                    <Ionicons
+                                        name={saldoOculto ? "eye-off-outline" : "eye-outline"}
+                                        size={18}
+                                        color={colors.textDark}
+                                    />
+                                </TouchableOpacity>
+                            </View>
+
+                            <View style={styles.saldoBaselineRow}>
+                                <Text style={[
+                                    styles.saldoText,
+                                    { color: saldoDisponivel < 0 ? colors.danger : colors.textDark }
+                                ]}>
+                                    {saldoOculto ? '••••••••' : `${saldoDisponivel.toFixed(2)} €`}
+                                </Text>
+                                <Text style={[styles.saldoSubMeta, { color: colors.textLight }]}>
+                                    de {totalRenda.toFixed(0)} € previstos
+                                </Text>
+                            </View>
+
+                            {/* Indicador de Consumo */}
+                            <View style={styles.consumoBlock}>
+                                <View style={styles.consumoRowText}>
+                                    <Text style={[styles.consumoInfoText, { color: colors.textMuted }]}>
+                                        {pctConsumida.toFixed(0)}% consumido • ritmo mensal
+                                    </Text>
+                                    <Text style={[
+                                        styles.consumoRestanteText,
+                                        { color: saldoDisponivel >= 0 ? '#047857' : colors.danger }
+                                    ]}>
+                                        {saldoOculto ? '•••• €' : `${Math.max(saldoDisponivel, 0).toFixed(0)} € restantes`}
+                                    </Text>
+                                </View>
+                                <View style={[
+                                    styles.consumoTrack,
+                                    {
+                                        backgroundColor: colors.trackBg,
+                                        borderColor: colors.border,
+                                    }
+                                ]}>
+                                    <View style={[
+                                        styles.consumoFill,
+                                        {
+                                            width: `${pctConsumida}%`,
+                                            backgroundColor: pctConsumida > 90 ? colors.danger : '#10B981',
+                                        }
+                                    ]} />
+                                </View>
+                            </View>
+
+                            {/* Grid de 2 Mini-Cards Bento */}
+                            <View style={styles.bentoMiniRow}>
+                                <View style={[
+                                    styles.bentoMiniCard,
+                                    {
+                                        backgroundColor: colors.background,
+                                        borderColor: colors.borderSubtle || colors.border,
+                                    }
+                                ]}>
+                                    <View style={styles.bentoMiniHeader}>
+                                        <Text style={[styles.bentoMiniLabel, { color: colors.textLight }]}>
+                                            RENDIMENTO
+                                        </Text>
+                                        <Ionicons name="arrow-up" size={14} color="#059669" />
+                                    </View>
+                                    <Text style={[styles.bentoMiniValue, { color: colors.textDark }]}>
+                                        +{totalRenda.toFixed(2)} €
+                                    </Text>
+                                    <Text style={[styles.bentoMiniFoot, { color: '#059669' }]}>
+                                        {membrosFamilia.length} {membrosFamilia.length === 1 ? 'membro' : 'membros'}
+                                    </Text>
+                                </View>
+
+                                <View style={[
+                                    styles.bentoMiniCard,
+                                    {
+                                        backgroundColor: colors.background,
+                                        borderColor: colors.borderSubtle || colors.border,
+                                    }
+                                ]}>
+                                    <View style={styles.bentoMiniHeader}>
+                                        <Text style={[styles.bentoMiniLabel, { color: colors.textLight }]}>
+                                            FIXAS PAGAS
+                                        </Text>
+                                        <Ionicons name="lock-closed-outline" size={14} color={colors.textDark} />
+                                    </View>
+                                    <Text style={[styles.bentoMiniValue, { color: colors.textDark }]}>
+                                        -{totalEssenciais.toFixed(2)} €
+                                    </Text>
+                                    <Text style={[styles.bentoMiniFoot, { color: colors.textLight }]}>
+                                        {despesasFixasPagasNoMes.length}/{despesasEssenciais.length} liquidadas
+                                    </Text>
+                                </View>
+                            </View>
+                        </View>
+                    )}
+                </View>
+
+                {/* 2. SECÇÃO DAS DESPESAS FIXAS (CARROSSEL HORIZONTAL SWISS GRID) */}
                 <View style={styles.section}>
                     <TouchableOpacity
                         style={styles.sectionHeaderClickable}
@@ -299,97 +485,183 @@ export default function HomeScreen() {
                         }}
                     >
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <Text style={[styles.sectionTitle, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold', marginBottom: 0 }]}>
-                                Despesas Mensais
+                            <Text style={[styles.sectionTitle, { color: colors.textDark, marginBottom: 0 }]}>
+                                DESPESAS MENSAIS FIXAS
                             </Text>
                             {despesasEssenciais.length > 0 && (
                                 <View style={[
                                     styles.badgeContagemFixas,
-                                    { backgroundColor: hexToRgba(despesasEssenciais.filter(item => despesaFoiPagaNoMes(item)).length === despesasEssenciais.length ? colors.success : colors.primaryLight, 0.15) }
+                                    {
+                                        backgroundColor: colors.primarySoft,
+                                        borderColor: colors.primaryLight,
+                                    }
                                 ]}>
-                                    <Text style={[
-                                        styles.badgeContagemFixasTexto,
-                                        { color: despesasEssenciais.filter(item => despesaFoiPagaNoMes(item)).length === despesasEssenciais.length ? colors.success : colors.primaryLight }
-                                    ]}>
-                                        {despesasEssenciais.filter(item => despesaFoiPagaNoMes(item)).length}/{despesasEssenciais.length}
+                                    <Text style={[styles.badgeContagemFixasTexto, { color: '#065F46' }]}>
+                                        {despesasFixasPagasNoMes.length} de {despesasEssenciais.length}
                                     </Text>
                                 </View>
                             )}
                         </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <Text style={{ color: colors.textLight, fontSize: 13, fontFamily: 'SpaceGrotesk_600SemiBold' }}>
-                                {totalEssenciais.toFixed(0)}€
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <Text style={[styles.verTodasLink, { color: colors.textDark }]}>
+                                {despesasFixasExpandidas ? 'Ocultar' : 'Ver todas'}
                             </Text>
                             <Ionicons
                                 name={despesasFixasExpandidas ? "chevron-up" : "chevron-down"}
-                                size={20}
-                                color={colors.textLight}
+                                size={16}
+                                color={colors.textDark}
                             />
                         </View>
                     </TouchableOpacity>
 
                     {despesasFixasExpandidas && (
-                        <View style={{ marginTop: 12 }}>
+                        <View style={{ marginTop: 10 }}>
                             {despesasEssenciais.length === 0 ? (
-                                <Text style={{ color: colors.textLight, fontSize: 13, textAlign: 'center', paddingVertical: 12, fontFamily: 'SpaceGrotesk_400Regular' }}>
-                                    Nenhuma despesa mensal configurada.
-                                </Text>
+                                <View style={[styles.emptyFixasBox, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+                                    <Text style={{ color: colors.textLight, fontSize: 13, textAlign: 'center', fontFamily: 'SpaceGrotesk_500Medium' }}>
+                                        Nenhuma despesa mensal configurada no Perfil.
+                                    </Text>
+                                </View>
                             ) : (
-                                despesasEssenciais.map((item) => {
-                                    const estaPaga = despesaFoiPagaNoMes(item);
-                                    const quemPagou = obterQuemPagouNoMes(item);
-                                    return (
-                                        <TouchableOpacity
-                                            key={item.id}
-                                            style={[
-                                                styles.essencialCard,
-                                                { backgroundColor: colors.cardBg, borderColor: colors.border },
-                                                estaPaga && styles.essencialCardPago
-                                            ]}
-                                            activeOpacity={0.7}
-                                            onPress={() => handleAlternarPagamentoFixo(item.id, estaPaga)}
-                                        >
-                                            <View style={styles.essencialInfoRow}>
-                                                <Ionicons
-                                                    name={estaPaga ? "checkmark-circle" : "ellipse-outline"}
-                                                    size={26}
-                                                    color={estaPaga ? colors.success : colors.textDisabled}
-                                                    style={{ marginRight: 12 }}
-                                                />
-                                                <View>
-                                                    <Text style={[styles.lojaText, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }, estaPaga && styles.textoRiscado]}>{item.nome}</Text>
-                                                    <Text style={[styles.detalheText, { color: colors.textLight, fontFamily: 'SpaceGrotesk_400Regular' }]}>
-                                                        {item.diaVencimento ? `Dia ${item.diaVencimento} • ` : ''}{estaPaga ? (quemPagou ? `Pago por ${quemPagou}` : "Pago") : "Pendente"}
+                                <ScrollView
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    contentContainerStyle={styles.fixasCarouselContent}
+                                >
+                                    {despesasEssenciais.map((item) => {
+                                        const estaPaga = despesaFoiPagaNoMes(item);
+                                        const quemPagou = obterQuemPagouNoMes(item);
+                                        const metaCat = obterMetaCategoria(item.categoria || 'Casa');
+
+                                        return (
+                                            <TouchableOpacity
+                                                key={item.id}
+                                                style={[
+                                                    styles.essencialCard,
+                                                    {
+                                                        backgroundColor: colors.cardBg,
+                                                        borderColor: colors.border,
+                                                    },
+                                                    !estaPaga && styles.essencialCardPendente,
+                                                ]}
+                                                activeOpacity={0.75}
+                                                onPress={() => handleAlternarPagamentoFixo(item.id, estaPaga)}
+                                            >
+                                                <View style={styles.essencialTopRow}>
+                                                    <View style={[
+                                                        styles.essencialIconBox,
+                                                        {
+                                                            backgroundColor: estaPaga ? '#D1FAE5' : '#FEF3C7',
+                                                        }
+                                                    ]}>
+                                                        <Ionicons
+                                                            name={metaCat.icone}
+                                                            size={18}
+                                                            color={estaPaga ? '#065F46' : '#92400E'}
+                                                        />
+                                                    </View>
+
+                                                    <View style={[
+                                                        styles.statusPill,
+                                                        estaPaga
+                                                            ? { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }
+                                                            : { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }
+                                                    ]}>
+                                                        <Text style={[
+                                                            styles.statusPillText,
+                                                            { color: estaPaga ? '#065F46' : '#92400E' }
+                                                        ]}>
+                                                            {estaPaga ? 'PAGO' : 'PENDENTE'}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+
+                                                <View style={styles.essencialBottomGroup}>
+                                                    <Text
+                                                        style={[
+                                                            styles.lojaText,
+                                                            { color: colors.textMuted },
+                                                            estaPaga && styles.textoRiscado
+                                                        ]}
+                                                        numberOfLines={1}
+                                                    >
+                                                        {item.nome}
+                                                    </Text>
+
+                                                    <View style={styles.essencialValorRow}>
+                                                        <Text style={[
+                                                            styles.valorFixo,
+                                                            { color: colors.textDark },
+                                                            estaPaga && styles.textoRiscado
+                                                        ]}>
+                                                            {Number(item.valor).toFixed(2)} €
+                                                        </Text>
+
+                                                        {!estaPaga && (
+                                                            <View style={[styles.btnPagarMini, { backgroundColor: colors.primary }]}>
+                                                                <Text style={styles.btnPagarMiniText}>PAGAR</Text>
+                                                            </View>
+                                                        )}
+                                                    </View>
+
+                                                    <Text style={[
+                                                        styles.detalheText,
+                                                        { color: estaPaga ? colors.textLight : '#B45309' }
+                                                    ]} numberOfLines={1}>
+                                                        {item.diaVencimento ? `Dia ${item.diaVencimento} • ` : ''}
+                                                        {estaPaga ? (quemPagou ? `Por ${quemPagou}` : 'Liquidado') : 'Toque p/ liquidar'}
                                                     </Text>
                                                 </View>
-                                            </View>
-                                            <Text style={[styles.valorFixo, { color: colors.textMuted, fontFamily: 'SpaceGrotesk_700Bold' }, estaPaga && styles.textoRiscado]}>-{item.valor.toFixed(2)} €</Text>
-                                        </TouchableOpacity>
-                                    );
-                                })
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </ScrollView>
                             )}
                         </View>
                     )}
                 </View>
 
-                {/* SECÇÃO DOS GASTOS VARIÁVEIS */}
+                {/* 3. SECÇÃO PARA ONDE VAI O DINHEIRO */}
                 <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>Para onde vai o dinheiro</Text>
                     <View style={[styles.graficoCard, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+                        <View style={[styles.graficoHeaderRow, { borderBottomColor: colors.borderSubtle || colors.border }]}>
+                            <View>
+                                <Text style={[styles.sectionTitle, { color: colors.textDark, marginBottom: 2 }]}>
+                                    PARA ONDE VAI O DINHEIRO
+                                </Text>
+                                <Text style={[styles.graficoSubtitle, { color: colors.textLight }]}>
+                                    Distribuição de consumo no ciclo atual
+                                </Text>
+                            </View>
+                            <View style={[styles.esteMesTag, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                                <Text style={[styles.esteMesTagText, { color: colors.textDark }]}>ESTE MÊS</Text>
+                            </View>
+                        </View>
+
                         <CategoryDonutChart dados={gastosPorCategoria} limites={limitesCategorias} />
                     </View>
                 </View>
 
+                {/* 4. SECÇÃO DOS GASTOS VARIÁVEIS */}
                 <View style={[styles.section, { paddingBottom: 100 }]}>
-                    <Text style={[styles.sectionTitle, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>Gastos Variáveis</Text>
+                    <View style={styles.gastosHeaderRow}>
+                        <View>
+                            <Text style={[styles.sectionTitle, { color: colors.textDark, marginBottom: 2 }]}>
+                                GASTOS RECENTES
+                            </Text>
+                            <Text style={[styles.graficoSubtitle, { color: colors.textLight }]}>
+                                Movimentos combinados da família
+                            </Text>
+                        </View>
+                    </View>
 
                     {/* Barra de Pesquisa e Filtros */}
                     <View style={styles.pesquisaContainer}>
                         <View style={[styles.inputPesquisaBox, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
-                            <Ionicons name="search-outline" size={20} color={colors.textDisabled} style={{ marginRight: 8 }} />
+                            <Ionicons name="search-outline" size={18} color={colors.textLight} style={{ marginRight: 8 }} />
                             <TextInput
-                                style={[styles.inputPesquisa, { color: colors.textDark, fontFamily: 'SpaceGrotesk_400Regular' }]}
-                                placeholder="Pesquisar loja ou categoria..."
+                                style={[styles.inputPesquisa, { color: colors.textDark }]}
+                                placeholder="Pesquisar transação ou categoria..."
                                 placeholderTextColor={colors.textDisabled}
                                 value={textoPesquisa}
                                 onChangeText={setTextoPesquisa}
@@ -401,30 +673,38 @@ export default function HomeScreen() {
                             )}
                         </View>
 
-                        <View style={styles.chipsRow}>
-                            {listaFiltrosPessoa.map((pessoa) => (
-                                <TouchableOpacity
-                                    key={pessoa}
-                                    style={[
-                                        styles.chipPessoa,
-                                        { backgroundColor: colors.chipBg },
-                                        filtroPessoa === pessoa && { backgroundColor: colors.primary }
-                                    ]}
-                                    onPress={() => {
-                                        Haptics.selectionAsync();
-                                        setFiltroPessoa(pessoa);
-                                    }}
-                                >
-                                    <Text style={[
-                                        styles.chipTexto,
-                                        { color: colors.textMuted, fontFamily: 'SpaceGrotesk_600SemiBold' },
-                                        filtroPessoa === pessoa && { color: '#FFFFFF' }
-                                    ]}>
-                                        {pessoa}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+                            {listaFiltrosPessoa.map((pessoa) => {
+                                const ativo = filtroPessoa === pessoa;
+                                const contagem = pessoa === 'Todos'
+                                    ? gastosVariaveis.length
+                                    : gastosVariaveis.filter(g => g.quem === pessoa).length;
+
+                                return (
+                                    <TouchableOpacity
+                                        key={pessoa}
+                                        style={[
+                                            styles.chipPessoa,
+                                            {
+                                                backgroundColor: ativo ? colors.primary : colors.cardBg,
+                                                borderColor: colors.border,
+                                            }
+                                        ]}
+                                        onPress={() => {
+                                            Haptics.selectionAsync();
+                                            setFiltroPessoa(pessoa);
+                                        }}
+                                    >
+                                        <Text style={[
+                                            styles.chipTexto,
+                                            { color: ativo ? '#FFFFFF' : colors.textDark }
+                                        ]}>
+                                            {pessoa} ({contagem})
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
                     </View>
 
                     {carregando ? (
@@ -435,19 +715,21 @@ export default function HomeScreen() {
                         </View>
                     ) : gastosVariaveis.length === 0 ? (
                         <EmptyState
-                            titulo="Sem gastos registados"
-                            subtitulo="Clica no botão + para adicionar a tua primeira compra deste mês."
-                            icone="cart-outline"
+                            title="Sem gastos registados"
+                            subtitle="Usa o botão Nova Despesa para adicionar a primeira compra deste mês."
+                            icon="cart-outline"
                         />
                     ) : gastosFiltrados.length === 0 ? (
                         <View style={[styles.semResultadosBox, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
                             <Ionicons name="filter-outline" size={32} color={colors.textDisabled} />
-                            <Text style={[styles.semResultadosTexto, { color: colors.textLight, fontFamily: 'SpaceGrotesk_400Regular' }]}>Nenhum gasto encontrado para os filtros aplicados.</Text>
+                            <Text style={[styles.semResultadosTexto, { color: colors.textLight }]}>
+                                Nenhum gasto encontrado para os filtros aplicados.
+                            </Text>
                             <TouchableOpacity
-                                style={[styles.btnLimparFiltros, { backgroundColor: hexToRgba(colors.primaryLight, 0.15) }]}
+                                style={[styles.btnLimparFiltros, { backgroundColor: colors.primary }]}
                                 onPress={() => { setTextoPesquisa(''); setFiltroPessoa('Todos'); }}
                             >
-                                <Text style={[styles.txtLimparFiltros, { color: colors.primaryLight, fontFamily: 'SpaceGrotesk_700Bold' }]}>Limpar Filtros</Text>
+                                <Text style={[styles.txtLimparFiltros, { color: '#FFFFFF' }]}>LIMPAR FILTROS</Text>
                             </TouchableOpacity>
                         </View>
                     ) : (
@@ -458,33 +740,39 @@ export default function HomeScreen() {
                 </View>
             </ScrollView>
 
-            {/* Botão Flutuante */}
+            {/* Botão Flutuante Swiss Grid */}
             <TouchableOpacity
                 disabled={!eMesAtual}
-                style={[styles.fab, { backgroundColor: colors.primary }, !eMesAtual && styles.fabDesativado]}
-                activeOpacity={0.8}
-                onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    setGastoEmEdicao(null); setNovaLoja(''); setNovoValor(''); setNovaCategoria(CATEGORIAS_DE_GASTO[0]); setModalVisivel(true);
-                }}
+                style={[
+                    styles.fab,
+                    {
+                        backgroundColor: '#10B981',
+                        borderColor: colors.border,
+                    },
+                    !eMesAtual && styles.fabDesativado
+                ]}
+                activeOpacity={0.85}
+                onPress={abrirModalNovoGasto}
             >
-                <Ionicons name="add" size={32} color="#FFFFFF" />
+                <Ionicons name="add" size={30} color="#FFFFFF" />
             </TouchableOpacity>
 
             {/* MODAL ADICIONAR / EDITAR GASTO */}
             <Modal animationType="fade" transparent={true} visible={modalVisivel} onRequestClose={() => setModalVisivel(false)}>
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
-                    <View style={[styles.modalContent, { backgroundColor: colors.modalContent, maxHeight: '90%' }]}>
-                        <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>{gastoEmEdicao ? "Editar Gasto" : "Adicionar Gasto"}</Text>
+                    <View style={[styles.modalContent, { backgroundColor: colors.modalContent, borderColor: colors.border, maxHeight: '90%' }]}>
+                        <View style={[styles.modalHeader, { borderBottomColor: colors.borderSubtle || colors.border }]}>
+                            <Text style={[styles.modalTitle, { color: colors.textDark }]}>
+                                {gastoEmEdicao ? "EDITAR GASTO" : "ADICIONAR GASTO"}
+                            </Text>
                             <TouchableOpacity onPress={() => setModalVisivel(false)}>
-                                <Ionicons name="close" size={28} color={colors.textLight} />
+                                <Ionicons name="close" size={26} color={colors.textDark} />
                             </TouchableOpacity>
                         </View>
 
                         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
                             <TextInput
-                                style={[styles.inputGrande, { color: colors.primaryLight, fontFamily: 'SpaceGrotesk_700Bold' }]}
+                                style={[styles.inputGrande, { color: colors.textDark, borderBottomColor: colors.border }]}
                                 placeholder="0,00 €"
                                 placeholderTextColor={colors.textDisabled}
                                 keyboardType="decimal-pad"
@@ -493,34 +781,52 @@ export default function HomeScreen() {
                                 autoFocus={true}
                             />
 
+                            <Text style={[styles.labelPessoa, { color: colors.textMuted }]}>DESCRIÇÃO / LOJA</Text>
                             <TextInput
-                                style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'SpaceGrotesk_400Regular' }]}
-                                placeholder="Onde foi a compra?"
+                                style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, borderColor: colors.border }]}
+                                placeholder="Onde foi a compra? (Ex: Continente)"
                                 placeholderTextColor={colors.textDisabled}
                                 value={novaLoja}
                                 onChangeText={setNovaLoja}
                             />
 
-                            <Text style={[styles.labelPessoa, { color: colors.textMuted, fontFamily: 'SpaceGrotesk_700Bold' }]}>Categoria</Text>
-                            <View style={[styles.pickerContainer, { backgroundColor: colors.inputBg }]}>
-                                <Picker
-                                    selectedValue={novaCategoria}
-                                    onValueChange={setNovaCategoria}
-                                    style={{ color: colors.textDark }}
-                                    itemStyle={Platform.OS === 'ios' ? { height: 120, fontSize: 16, color: colors.textDark } : {}}
-                                >
-                                    {CATEGORIAS_DE_GASTO.map((categoria) => (
-                                        <Picker.Item
+                            <Text style={[styles.labelPessoa, { color: colors.textMuted }]}>CATEGORIA</Text>
+                            <View style={styles.categoriasGrid}>
+                                {CATEGORIAS_DE_GASTO.map((categoria) => {
+                                    const selecionada = novaCategoria === categoria;
+                                    const meta = obterMetaCategoria(categoria);
+                                    return (
+                                        <TouchableOpacity
                                             key={categoria}
-                                            label={categoria}
-                                            value={categoria}
-                                            color={colors.textDark}
-                                        />
-                                    ))}
-                                </Picker>
+                                            style={[
+                                                styles.chipCategoriaModal,
+                                                {
+                                                    backgroundColor: selecionada ? colors.primary : colors.inputBg,
+                                                    borderColor: selecionada ? colors.primary : colors.borderSubtle || colors.border,
+                                                }
+                                            ]}
+                                            onPress={() => {
+                                                Haptics.selectionAsync();
+                                                setNovaCategoria(categoria);
+                                            }}
+                                        >
+                                            <Ionicons
+                                                name={meta.icone}
+                                                size={15}
+                                                color={selecionada ? '#10B981' : colors.textMuted}
+                                            />
+                                            <Text style={[
+                                                styles.chipCategoriaModalTexto,
+                                                { color: selecionada ? '#FFFFFF' : colors.textDark }
+                                            ]}>
+                                                {categoria}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
                             </View>
 
-                            <Text style={[styles.labelPessoa, { color: colors.textMuted, fontFamily: 'SpaceGrotesk_700Bold' }]}>Quem gastou?</Text>
+                            <Text style={[styles.labelPessoa, { color: colors.textMuted }]}>QUEM GASTOU?</Text>
                             <View style={styles.quemContainer}>
                                 {nomesMembros.map((nomeMembro) => {
                                     const eSelecionado = quemGastou === nomeMembro;
@@ -529,15 +835,19 @@ export default function HomeScreen() {
                                             key={nomeMembro}
                                             style={[
                                                 styles.btnQuem,
-                                                { backgroundColor: colors.inputBg },
-                                                eSelecionado && { backgroundColor: hexToRgba(colors.primaryLight, 0.2), borderColor: colors.primaryLight }
+                                                {
+                                                    backgroundColor: eSelecionado ? colors.primary : colors.inputBg,
+                                                    borderColor: colors.border,
+                                                }
                                             ]}
-                                            onPress={() => setQuemGastou(nomeMembro)}
+                                            onPress={() => {
+                                                Haptics.selectionAsync();
+                                                setQuemGastou(nomeMembro);
+                                            }}
                                         >
                                             <Text style={[
                                                 styles.btnQuemTexto,
-                                                { color: colors.textLight, fontFamily: 'SpaceGrotesk_600SemiBold' },
-                                                eSelecionado && { color: colors.primaryLight, fontWeight: 'bold' }
+                                                { color: eSelecionado ? '#FFFFFF' : colors.textDark }
                                             ]}>
                                                 {nomeMembro}
                                             </Text>
@@ -546,8 +856,11 @@ export default function HomeScreen() {
                                 })}
                             </View>
 
-                            <TouchableOpacity style={[styles.btnGuardar, { backgroundColor: colors.success }]} onPress={guardarGasto}>
-                                <Text style={[styles.btnGuardarTexto, { fontFamily: 'SpaceGrotesk_700Bold' }]}>Guardar</Text>
+                            <TouchableOpacity
+                                style={[styles.btnGuardar, { backgroundColor: '#10B981', borderColor: colors.border }]}
+                                onPress={guardarGasto}
+                            >
+                                <Text style={styles.btnGuardarTexto}>GUARDAR MOVIMENTO</Text>
                             </TouchableOpacity>
                         </ScrollView>
                     </View>

@@ -149,7 +149,7 @@ export default function GoalsScreen() {
     const gerirObjetivo = (objetivo) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         Alert.alert(
-            "Gerir Gasto", // Mantem consistência com título original/novo
+            "Gerir Objetivo", // Mantem consistência com título original/novo
             `O que desejas fazer com "${objetivo.titulo}"?`,
             [
                 { text: "Cancelar", style: "cancel" },
@@ -170,10 +170,99 @@ export default function GoalsScreen() {
         );
     };
 
+    const renderGoalCard = (objetivo, individual = false) => {
+        const percentagem = Math.min(objetivo.meta > 0 ? (objetivo.guardado / objetivo.meta) * 100 : 0, 100);
+        const concluido = percentagem >= 100;
+
+        return (
+            <TouchableOpacity
+                key={objetivo.id}
+                style={[styles.card, { backgroundColor: colors.cardBg, borderColor: colors.border }]}
+                activeOpacity={0.8}
+                onPress={() => gerirObjetivo(objetivo)}
+            >
+                <View style={styles.cardHeader}>
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <Text style={[styles.titulo, { color: colors.textDark }]}>
+                            {objetivo.icone} {objetivo.titulo}
+                        </Text>
+                        {individual && objetivo.dono && (
+                            <View style={[styles.badgeDono, { backgroundColor: colors.primarySoft, borderColor: colors.primaryLight }]}>
+                                <Text style={[styles.badgeDonoTexto, { color: '#065F46' }]}>{objetivo.dono}</Text>
+                            </View>
+                        )}
+                    </View>
+                    <View style={[
+                        styles.pctPill,
+                        {
+                            backgroundColor: concluido ? colors.successSoft : colors.inputBg,
+                            borderColor: concluido ? colors.success : colors.border,
+                        }
+                    ]}>
+                        <Text style={[
+                            styles.pctPillText,
+                            { color: concluido ? '#065F46' : colors.textDark }
+                        ]}>
+                            {percentagem.toFixed(0)}%
+                        </Text>
+                    </View>
+                </View>
+
+                <View style={styles.valoresRow}>
+                    <Text style={[styles.valores, { color: colors.textLight }]}>
+                        <Text style={[styles.guardado, { color: colors.textDark }]}>{objetivo.guardado.toFixed(0)} €</Text> / {objetivo.meta.toFixed(0)} €
+                    </Text>
+
+                    <TouchableOpacity
+                        style={[styles.btnMovimentarInline, { backgroundColor: colors.primary }]}
+                        onPress={() => {
+                            Haptics.selectionAsync();
+                            setObjetivoSelecionado(objetivo);
+                            setModalMovimentoVisivel(true);
+                        }}
+                    >
+                        <Ionicons name="swap-vertical" size={12} color="#10B981" />
+                        <Text style={styles.btnMovimentarInlineText}>MOVIMENTAR</Text>
+                    </TouchableOpacity>
+                </View>
+
+                <View style={[styles.barraFundo, { backgroundColor: colors.trackBg, borderColor: colors.border }]}>
+                    <View style={[
+                        styles.barraProgresso,
+                        {
+                            width: `${percentagem}%`,
+                            backgroundColor: concluido ? colors.success : colors.primaryLight,
+                        }
+                    ]} />
+                </View>
+            </TouchableOpacity>
+        );
+    };
+
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={[styles.header, { paddingTop: Math.max(insets.top + 4, 12) }]}>
-                <Text style={[styles.headerTitle, { color: colors.textDark }]}>Objetivos</Text>
+            <View style={[
+                styles.header,
+                {
+                    backgroundColor: colors.cardBg,
+                    borderBottomColor: colors.border,
+                    paddingTop: Math.max(insets.top + 6, 14),
+                }
+            ]}>
+                <View>
+                    <Text style={[styles.headerOverline, { color: colors.textLight }]}>METAS & POUPANÇAS</Text>
+                    <Text style={[styles.headerTitle, { color: colors.textDark }]}>Objetivos</Text>
+                </View>
+                <TouchableOpacity
+                    style={[styles.btnHeaderAdd, { backgroundColor: '#10B981', borderColor: colors.border }]}
+                    onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        setModalCriarVisivel(true);
+                    }}
+                >
+                    <Ionicons name="add" size={16} color="#FFFFFF" />
+                    <Text style={styles.btnHeaderAddText}>NOVA META</Text>
+                </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -184,96 +273,63 @@ export default function GoalsScreen() {
                     </View>
                 ) : objetivos.length === 0 ? (
                     <EmptyState
-                        titulo="Sem metas definidas"
-                        subtitulo="Cria objetivos de poupança como viagens, fundo de emergência ou compras."
-                        icone="flag-outline"
+                        title="Sem metas definidas"
+                        subtitle="Cria objetivos de poupança como viagens, fundo de emergência ou compras."
+                        icon="flag-outline"
                     />
                 ) : (
-                    <View style={{ gap: 20 }}>
+                    <View style={{ gap: 20, paddingBottom: 90 }}>
                         {/* SECÇÃO FAMILIAR */}
                         {objetivos.filter(obj => obj.tipo === 'familiar' || !obj.tipo).length > 0 && (
                             <View style={styles.seccao}>
-                                <Text style={[styles.seccaoTitulo, { color: colors.textLight, fontFamily: 'SpaceGrotesk_700Bold' }]}>Objetivos da Família</Text>
-                                {objetivos.filter(obj => obj.tipo === 'familiar' || !obj.tipo).map((objetivo) => {
-                                    const percentagem = Math.min(objetivo.meta > 0 ? (objetivo.guardado / objetivo.meta) * 100 : 0, 100);
-                                    const concluido = percentagem >= 100;
-
-                                    return (
-                                        <TouchableOpacity key={objetivo.id} style={[styles.card, { backgroundColor: colors.cardBg, borderColor: colors.border }]} activeOpacity={0.8} onPress={() => gerirObjetivo(objetivo)}>
-                                            <View style={styles.cardHeader}>
-                                                <Text style={[styles.titulo, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>{objetivo.icone} {objetivo.titulo}</Text>
-                                                <Text style={[styles.valores, { color: colors.textLight, fontFamily: 'SpaceGrotesk_400Regular' }]}>
-                                                    <Text style={[styles.guardado, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>{objetivo.guardado.toFixed(0)}€</Text> / {objetivo.meta.toFixed(0)}€
-                                                </Text>
-                                            </View>
-                                            <View style={[styles.barraFundo, { backgroundColor: colors.inputBg }]}>
-                                                <View style={[styles.barraProgresso, { width: `${percentagem}%`, backgroundColor: concluido ? colors.success : colors.primaryLight }]} />
-                                            </View>
-                                        </TouchableOpacity>
-                                    );
-                                })}
+                                <Text style={[styles.seccaoTitulo, { color: colors.textDark }]}>OBJETIVOS DA FAMÍLIA</Text>
+                                {objetivos.filter(obj => obj.tipo === 'familiar' || !obj.tipo).map(obj => renderGoalCard(obj, false))}
                             </View>
                         )}
 
                         {/* SECÇÃO INDIVIDUAL */}
                         {objetivos.filter(obj => obj.tipo === 'individual').length > 0 && (
                             <View style={styles.seccao}>
-                                <Text style={[styles.seccaoTitulo, { color: colors.textLight, fontFamily: 'SpaceGrotesk_700Bold' }]}>Objetivos Individuais</Text>
-                                {objetivos.filter(obj => obj.tipo === 'individual').map((objetivo) => {
-                                    const percentagem = Math.min(objetivo.meta > 0 ? (objetivo.guardado / objetivo.meta) * 100 : 0, 100);
-                                    const concluido = percentagem >= 100;
-
-                                    return (
-                                        <TouchableOpacity key={objetivo.id} style={[styles.card, { backgroundColor: colors.cardBg, borderColor: colors.border }]} activeOpacity={0.8} onPress={() => gerirObjetivo(objetivo)}>
-                                            <View style={styles.cardHeader}>
-                                                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                                    <Text style={[styles.titulo, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>{objetivo.icone} {objetivo.titulo}</Text>
-                                                    <View style={[styles.badgeDono, { backgroundColor: hexToRgba(colors.primaryLight, 0.15) }]}>
-                                                        <Text style={[styles.badgeDonoTexto, { color: colors.primaryLight, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>{objetivo.dono}</Text>
-                                                    </View>
-                                                </View>
-                                                <Text style={[styles.valores, { color: colors.textLight, fontFamily: 'SpaceGrotesk_400Regular' }]}>
-                                                    <Text style={[styles.guardado, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>{objetivo.guardado.toFixed(0)}€</Text> / {objetivo.meta.toFixed(0)}€
-                                                </Text>
-                                            </View>
-                                            <View style={[styles.barraFundo, { backgroundColor: colors.inputBg }]}>
-                                                <View style={[styles.barraProgresso, { width: `${percentagem}%`, backgroundColor: concluido ? colors.success : colors.primaryLight }]} />
-                                            </View>
-                                        </TouchableOpacity>
-                                    );
-                                })}
+                                <Text style={[styles.seccaoTitulo, { color: colors.textDark }]}>OBJETIVOS INDIVIDUAIS</Text>
+                                {objetivos.filter(obj => obj.tipo === 'individual').map(obj => renderGoalCard(obj, true))}
                             </View>
                         )}
                     </View>
                 )}
             </ScrollView>
 
-            <TouchableOpacity style={[styles.fab, { backgroundColor: colors.primaryLight }]} activeOpacity={0.8} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setModalCriarVisivel(true); }}>
-                <Ionicons name="add" size={32} color="#FFFFFF" />
+            <TouchableOpacity
+                style={[styles.fab, { backgroundColor: '#10B981', borderColor: colors.border }]}
+                activeOpacity={0.85}
+                onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setModalCriarVisivel(true);
+                }}
+            >
+                <Ionicons name="add" size={30} color="#FFFFFF" />
             </TouchableOpacity>
 
             {/* MODAL 1: CRIAR NOVA META */}
             <Modal animationType="fade" transparent={true} visible={modalCriarVisivel} onRequestClose={() => setModalCriarVisivel(false)}>
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
-                    <View style={[styles.modalContent, { backgroundColor: colors.modalContent }]}>
-                        <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>Novo Objetivo</Text>
-                            <TouchableOpacity onPress={() => setModalCriarVisivel(false)}><Ionicons name="close" size={28} color={colors.textLight} /></TouchableOpacity>
+                    <View style={[styles.modalContent, { backgroundColor: colors.modalContent, borderColor: colors.border }]}>
+                        <View style={[styles.modalHeader, { borderBottomColor: colors.borderSubtle || colors.border }]}>
+                            <Text style={[styles.modalTitle, { color: colors.textDark }]}>NOVO OBJETIVO</Text>
+                            <TouchableOpacity onPress={() => setModalCriarVisivel(false)}><Ionicons name="close" size={26} color={colors.textDark} /></TouchableOpacity>
                         </View>
-                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'SpaceGrotesk_400Regular' }]} placeholder="Título (Ex: Viagem)" placeholderTextColor={colors.textDisabled} value={novoTitulo} onChangeText={setNovoTitulo} />
-                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'SpaceGrotesk_400Regular' }]} placeholder="Emoji (Ex: ✈️)" placeholderTextColor={colors.textDisabled} value={novoIcone} onChangeText={setNovoIcone} />
+                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, borderColor: colors.border }]} placeholder="Título (Ex: Viagem)" placeholderTextColor={colors.textDisabled} value={novoTitulo} onChangeText={setNovoTitulo} />
+                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, borderColor: colors.border }]} placeholder="Emoji (Ex: ✈️)" placeholderTextColor={colors.textDisabled} value={novoIcone} onChangeText={setNovoIcone} />
                         <View style={styles.rowInputs}>
-                            <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, flex: 1, marginRight: 10, fontFamily: 'SpaceGrotesk_400Regular' }]} placeholder="Meta (€)" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={novaMeta} onChangeText={setNovaMeta} />
-                            <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, flex: 1, fontFamily: 'SpaceGrotesk_400Regular' }]} placeholder="Já guardado (€)" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={novoGuardado} onChangeText={setNovoGuardado} />
+                            <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, borderColor: colors.border, flex: 1, marginRight: 10 }]} placeholder="Meta (€)" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={novaMeta} onChangeText={setNovaMeta} />
+                            <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, borderColor: colors.border, flex: 1 }]} placeholder="Já guardado (€)" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={novoGuardado} onChangeText={setNovoGuardado} />
                         </View>
 
-                        <Text style={[styles.labelPessoa, { color: colors.textMuted, fontFamily: 'SpaceGrotesk_700Bold', marginBottom: 8, marginTop: 5 }]}>Tipo de Objetivo</Text>
+                        <Text style={[styles.labelPessoa, { color: colors.textMuted }]}>TIPO DE OBJETIVO</Text>
                         <View style={styles.tipoContainer}>
                             <TouchableOpacity
                                 style={[
                                     styles.btnTipo,
-                                    { backgroundColor: colors.inputBg },
-                                    tipoObjetivo === 'familiar' && { backgroundColor: hexToRgba(colors.primaryLight, 0.2), borderColor: colors.primaryLight }
+                                    { backgroundColor: tipoObjetivo === 'familiar' ? colors.primary : colors.inputBg, borderColor: colors.border }
                                 ]}
                                 onPress={() => {
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -282,17 +338,15 @@ export default function GoalsScreen() {
                             >
                                 <Text style={[
                                     styles.btnTipoTexto,
-                                    { color: colors.textLight, fontFamily: 'SpaceGrotesk_600SemiBold' },
-                                    tipoObjetivo === 'familiar' && { color: colors.primaryLight, fontWeight: 'bold' }
+                                    { color: tipoObjetivo === 'familiar' ? '#FFFFFF' : colors.textDark }
                                 ]}>
-                                    Familiar
+                                    FAMILIAR
                                 </Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[
                                     styles.btnTipo,
-                                    { backgroundColor: colors.inputBg },
-                                    tipoObjetivo === 'individual' && { backgroundColor: hexToRgba(colors.primaryLight, 0.2), borderColor: colors.primaryLight }
+                                    { backgroundColor: tipoObjetivo === 'individual' ? colors.primary : colors.inputBg, borderColor: colors.border }
                                 ]}
                                 onPress={() => {
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -301,17 +355,16 @@ export default function GoalsScreen() {
                             >
                                 <Text style={[
                                     styles.btnTipoTexto,
-                                    { color: colors.textLight, fontFamily: 'SpaceGrotesk_600SemiBold' },
-                                    tipoObjetivo === 'individual' && { color: colors.primaryLight, fontWeight: 'bold' }
+                                    { color: tipoObjetivo === 'individual' ? '#FFFFFF' : colors.textDark }
                                 ]}>
-                                    Individual
+                                    INDIVIDUAL
                                 </Text>
                             </TouchableOpacity>
                         </View>
 
                         {tipoObjetivo === 'individual' && (
                             <>
-                                <Text style={[styles.labelPessoa, { color: colors.textMuted, fontFamily: 'SpaceGrotesk_700Bold', marginBottom: 8, marginTop: 5 }]}>A quem pertence?</Text>
+                                <Text style={[styles.labelPessoa, { color: colors.textMuted }]}>A QUEM PERTENCE?</Text>
                                 <View style={styles.donoContainer}>
                                     {membrosFamilia.map((membro) => {
                                         const eSelecionado = donoObjetivo === membro.nome;
@@ -320,8 +373,7 @@ export default function GoalsScreen() {
                                                 key={membro.uid}
                                                 style={[
                                                     styles.btnDono,
-                                                    { backgroundColor: colors.inputBg },
-                                                    eSelecionado && { backgroundColor: hexToRgba(colors.primaryLight, 0.2), borderColor: colors.primaryLight }
+                                                    { backgroundColor: eSelecionado ? colors.primary : colors.inputBg, borderColor: colors.border }
                                                 ]}
                                                 onPress={() => {
                                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -330,8 +382,7 @@ export default function GoalsScreen() {
                                             >
                                                 <Text style={[
                                                     styles.btnDonoTexto,
-                                                    { color: colors.textLight, fontFamily: 'SpaceGrotesk_600SemiBold' },
-                                                    eSelecionado && { color: colors.primaryLight, fontWeight: 'bold' }
+                                                    { color: eSelecionado ? '#FFFFFF' : colors.textDark }
                                                 ]}>
                                                     {membro.nome}
                                                 </Text>
@@ -342,7 +393,9 @@ export default function GoalsScreen() {
                             </>
                         )}
 
-                        <TouchableOpacity style={[styles.btnGuardar, { backgroundColor: colors.primaryLight, marginTop: 10 }]} onPress={guardarNovoObjetivo}><Text style={[styles.btnGuardarTexto, { fontFamily: 'SpaceGrotesk_700Bold' }]}>Criar Objetivo</Text></TouchableOpacity>
+                        <TouchableOpacity style={[styles.btnGuardar, { backgroundColor: '#10B981', borderColor: colors.border, marginTop: 10 }]} onPress={guardarNovoObjetivo}>
+                            <Text style={styles.btnGuardarTexto}>CRIAR OBJETIVO</Text>
+                        </TouchableOpacity>
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
@@ -350,22 +403,21 @@ export default function GoalsScreen() {
             {/* MODAL 2: EDITAR META EXISTENTE */}
             <Modal animationType="fade" transparent={true} visible={modalEditarVisivel} onRequestClose={() => setModalEditarVisivel(false)}>
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
-                    <View style={[styles.modalContent, { backgroundColor: colors.modalContent }]}>
-                        <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>Editar Objetivo</Text>
-                            <TouchableOpacity onPress={() => setModalEditarVisivel(false)}><Ionicons name="close" size={28} color={colors.textLight} /></TouchableOpacity>
+                    <View style={[styles.modalContent, { backgroundColor: colors.modalContent, borderColor: colors.border }]}>
+                        <View style={[styles.modalHeader, { borderBottomColor: colors.borderSubtle || colors.border }]}>
+                            <Text style={[styles.modalTitle, { color: colors.textDark }]}>EDITAR OBJETIVO</Text>
+                            <TouchableOpacity onPress={() => setModalEditarVisivel(false)}><Ionicons name="close" size={26} color={colors.textDark} /></TouchableOpacity>
                         </View>
-                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'SpaceGrotesk_400Regular' }]} placeholder="Título" placeholderTextColor={colors.textDisabled} value={editTitulo} onChangeText={setEditTitulo} />
-                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'SpaceGrotesk_400Regular' }]} placeholder="Emoji" placeholderTextColor={colors.textDisabled} value={editIcone} onChangeText={setEditIcone} />
-                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, fontFamily: 'SpaceGrotesk_400Regular' }]} placeholder="Valor da Meta (€)" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={editMeta} onChangeText={setEditMeta} />
+                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, borderColor: colors.border }]} placeholder="Título" placeholderTextColor={colors.textDisabled} value={editTitulo} onChangeText={setEditTitulo} />
+                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, borderColor: colors.border }]} placeholder="Emoji" placeholderTextColor={colors.textDisabled} value={editIcone} onChangeText={setEditIcone} />
+                        <TextInput style={[styles.inputNormal, { backgroundColor: colors.inputBg, color: colors.textDark, borderColor: colors.border }]} placeholder="Valor da Meta (€)" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={editMeta} onChangeText={setEditMeta} />
 
-                        <Text style={[styles.labelPessoa, { color: colors.textMuted, fontFamily: 'SpaceGrotesk_700Bold', marginBottom: 8, marginTop: 5 }]}>Tipo de Objetivo</Text>
+                        <Text style={[styles.labelPessoa, { color: colors.textMuted }]}>TIPO DE OBJETIVO</Text>
                         <View style={styles.tipoContainer}>
                             <TouchableOpacity
                                 style={[
                                     styles.btnTipo,
-                                    { backgroundColor: colors.inputBg },
-                                    editTipo === 'familiar' && { backgroundColor: hexToRgba(colors.primaryLight, 0.2), borderColor: colors.primaryLight }
+                                    { backgroundColor: editTipo === 'familiar' ? colors.primary : colors.inputBg, borderColor: colors.border }
                                 ]}
                                 onPress={() => {
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -374,17 +426,15 @@ export default function GoalsScreen() {
                             >
                                 <Text style={[
                                     styles.btnTipoTexto,
-                                    { color: colors.textLight, fontFamily: 'SpaceGrotesk_600SemiBold' },
-                                    editTipo === 'familiar' && { color: colors.primaryLight, fontWeight: 'bold' }
+                                    { color: editTipo === 'familiar' ? '#FFFFFF' : colors.textDark }
                                 ]}>
-                                    Familiar
+                                    FAMILIAR
                                 </Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[
                                     styles.btnTipo,
-                                    { backgroundColor: colors.inputBg },
-                                    editTipo === 'individual' && { backgroundColor: hexToRgba(colors.primaryLight, 0.2), borderColor: colors.primaryLight }
+                                    { backgroundColor: editTipo === 'individual' ? colors.primary : colors.inputBg, borderColor: colors.border }
                                 ]}
                                 onPress={() => {
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -393,17 +443,16 @@ export default function GoalsScreen() {
                             >
                                 <Text style={[
                                     styles.btnTipoTexto,
-                                    { color: colors.textLight, fontFamily: 'SpaceGrotesk_600SemiBold' },
-                                    editTipo === 'individual' && { color: colors.primaryLight, fontWeight: 'bold' }
+                                    { color: editTipo === 'individual' ? '#FFFFFF' : colors.textDark }
                                 ]}>
-                                    Individual
+                                    INDIVIDUAL
                                 </Text>
                             </TouchableOpacity>
                         </View>
 
                         {editTipo === 'individual' && (
                             <>
-                                <Text style={[styles.labelPessoa, { color: colors.textMuted, fontFamily: 'SpaceGrotesk_700Bold', marginBottom: 8, marginTop: 5 }]}>A quem pertence?</Text>
+                                <Text style={[styles.labelPessoa, { color: colors.textMuted }]}>A QUEM PERTENCE?</Text>
                                 <View style={styles.donoContainer}>
                                     {membrosFamilia.map((membro) => {
                                         const eSelecionado = editDono === membro.nome;
@@ -412,8 +461,7 @@ export default function GoalsScreen() {
                                                 key={membro.uid}
                                                 style={[
                                                     styles.btnDono,
-                                                    { backgroundColor: colors.inputBg },
-                                                    eSelecionado && { backgroundColor: hexToRgba(colors.primaryLight, 0.2), borderColor: colors.primaryLight }
+                                                    { backgroundColor: eSelecionado ? colors.primary : colors.inputBg, borderColor: colors.border }
                                                 ]}
                                                 onPress={() => {
                                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -422,8 +470,7 @@ export default function GoalsScreen() {
                                             >
                                                 <Text style={[
                                                     styles.btnDonoTexto,
-                                                    { color: colors.textLight, fontFamily: 'SpaceGrotesk_600SemiBold' },
-                                                    eSelecionado && { color: colors.primaryLight, fontWeight: 'bold' }
+                                                    { color: eSelecionado ? '#FFFFFF' : colors.textDark }
                                                 ]}>
                                                     {membro.nome}
                                                 </Text>
@@ -434,7 +481,9 @@ export default function GoalsScreen() {
                             </>
                         )}
 
-                        <TouchableOpacity style={[styles.btnGuardar, { backgroundColor: colors.primaryLight, marginTop: 15 }]} onPress={guardarEdicao}><Text style={[styles.btnGuardarTexto, { fontFamily: 'SpaceGrotesk_700Bold' }]}>Guardar Alterações</Text></TouchableOpacity>
+                        <TouchableOpacity style={[styles.btnGuardar, { backgroundColor: '#10B981', borderColor: colors.border, marginTop: 15 }]} onPress={guardarEdicao}>
+                            <Text style={styles.btnGuardarTexto}>GUARDAR ALTERAÇÕES</Text>
+                        </TouchableOpacity>
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
@@ -442,21 +491,23 @@ export default function GoalsScreen() {
             {/* MODAL 3: DEPOSITAR OU RETIRAR DINHEIRO */}
             <Modal animationType="fade" transparent={true} visible={modalMovimentoVisivel} onRequestClose={() => setModalMovimentoVisivel(false)}>
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalFundo}>
-                    <View style={[styles.modalContent, { backgroundColor: colors.modalContent }]}>
-                        <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: colors.textDark, fontFamily: 'SpaceGrotesk_700Bold' }]}>Movimentar Dinheiro</Text>
-                            <TouchableOpacity onPress={() => setModalMovimentoVisivel(false)}><Ionicons name="close" size={28} color={colors.textLight} /></TouchableOpacity>
+                    <View style={[styles.modalContent, { backgroundColor: colors.modalContent, borderColor: colors.border }]}>
+                        <View style={[styles.modalHeader, { borderBottomColor: colors.borderSubtle || colors.border }]}>
+                            <Text style={[styles.modalTitle, { color: colors.textDark }]}>MOVIMENTAR DINHEIRO</Text>
+                            <TouchableOpacity onPress={() => setModalMovimentoVisivel(false)}><Ionicons name="close" size={26} color={colors.textDark} /></TouchableOpacity>
                         </View>
-                        <Text style={{ color: colors.textLight, marginBottom: 20, textAlign: 'center', fontFamily: 'SpaceGrotesk_400Regular' }}>Valor a movimentar em: {objetivoSelecionado?.titulo}</Text>
+                        <Text style={{ color: colors.textLight, marginBottom: 14, textAlign: 'center', fontFamily: 'SpaceGrotesk_500Medium' }}>
+                            Meta: {objetivoSelecionado?.titulo}
+                        </Text>
 
-                        <TextInput style={[styles.inputGrande, { color: colors.primaryLight, fontFamily: 'SpaceGrotesk_700Bold' }]} placeholder="0,00 €" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={valorMovimento} onChangeText={setValorMovimento} autoFocus={true} />
+                        <TextInput style={[styles.inputGrande, { color: colors.textDark, borderBottomColor: colors.border }]} placeholder="0,00 €" placeholderTextColor={colors.textDisabled} keyboardType="decimal-pad" value={valorMovimento} onChangeText={setValorMovimento} autoFocus={true} />
 
                         <View style={styles.rowInputs}>
-                            <TouchableOpacity style={[styles.btnGuardar, { backgroundColor: colors.primaryLight, flex: 1, marginRight: 10 }]} onPress={() => realizarMovimento('depositar')}>
-                                <Text style={[styles.btnGuardarTexto, { fontFamily: 'SpaceGrotesk_700Bold' }]}>Depositar</Text>
+                            <TouchableOpacity style={[styles.btnGuardar, { backgroundColor: '#10B981', borderColor: colors.border, flex: 1, marginRight: 10 }]} onPress={() => realizarMovimento('depositar')}>
+                                <Text style={styles.btnGuardarTexto}>DEPOSITAR</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={[styles.btnRetirar, { flex: 1, backgroundColor: hexToRgba(colors.danger, 0.15) }]} onPress={() => realizarMovimento('retirar')}>
-                                <Text style={[styles.btnRetirarTexto, { color: colors.danger, fontFamily: 'SpaceGrotesk_700Bold' }]}>Retirar</Text>
+                            <TouchableOpacity style={[styles.btnRetirar, { flex: 1, backgroundColor: colors.dangerSoft, borderColor: colors.danger }]} onPress={() => realizarMovimento('retirar')}>
+                                <Text style={[styles.btnRetirarTexto, { color: colors.danger }]}>RETIRAR</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -465,5 +516,3 @@ export default function GoalsScreen() {
         </SafeAreaView>
     );
 }
-
-

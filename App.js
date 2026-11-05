@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,25 +23,29 @@ const Tab = createBottomTabNavigator();
 
 function MainTabs() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <NavigationContainer>
       <Tab.Navigator
         screenOptions={({ route }) => ({
           headerShown: false,
-          tabBarActiveTintColor: colors.primaryLight,
+          tabBarActiveTintColor: colors.textDark,
           tabBarInactiveTintColor: colors.textDisabled,
           tabBarLabelStyle: {
-            fontFamily: 'SpaceGrotesk_600SemiBold',
-            fontSize: 11,
+            fontFamily: 'SpaceGrotesk_700Bold',
+            fontSize: 10,
+            textTransform: 'uppercase',
+            letterSpacing: 0.4,
           },
           tabBarStyle: {
             backgroundColor: colors.cardBg,
             borderTopColor: colors.border,
-            borderTopWidth: 1,
-            elevation: 10,
-            height: 60,
-            paddingBottom: 10,
+            borderTopWidth: 2,
+            elevation: 12,
+            height: 60 + insets.bottom,
+            paddingBottom: Math.max(insets.bottom, 8),
+            paddingTop: 6,
           },
           tabBarIcon: ({ focused, color, size }) => {
             let iconName;
@@ -50,13 +54,20 @@ function MainTabs() {
             } else if (route.name === 'Objetivos') {
               iconName = focused ? 'flag' : 'flag-outline';
             } else if (route.name === 'Por Pessoa') {
-              iconName = focused ? 'pie-chart' : 'pie-chart-outline';
+              iconName = focused ? 'people' : 'people-outline';
             } else if (route.name === 'Relatórios') {
               iconName = focused ? 'stats-chart' : 'stats-chart-outline';
             } else if (route.name === 'Meu Perfil') {
               iconName = focused ? 'person' : 'person-outline';
             }
-            return <Ionicons name={iconName} size={size} color={color} />;
+            return (
+              <View style={{ alignItems: 'center' }}>
+                <Ionicons name={iconName} size={20} color={focused ? colors.primaryLight : color} />
+                {focused && (
+                  <View style={{ width: 12, height: 2.5, backgroundColor: colors.primaryLight, marginTop: 2 }} />
+                )}
+              </View>
+            );
           },
         })}
       >
@@ -99,8 +110,8 @@ export default function App() {
 
   if (!fontsLoaded) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F7FA' }}>
-        <ActivityIndicator size="large" color="#3B82F6" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' }}>
+        <ActivityIndicator size="large" color="#10B981" />
       </View>
     );
   }
