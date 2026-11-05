@@ -79,7 +79,7 @@ src/
 ## Experiência e Funcionalidades
 
 ### 1. Autenticação e Grupos Familiares (`AuthScreen` & `AuthContext`)
-- **Login e Registo** com e-mail e palavra-passe através do Firebase Auth.
+- **Login e Registo** com e-mail e palavra-passe através do Firebase Auth (não é a solução definitiva).
 - **Criação Automática de Família (Modo Solo)**: Se o utilizador se registar sem código de convite, é criado automaticamente um grupo familiar privado (`fam_<uid>`) com um código de convite único de 6 caracteres.
 - **Código de Convite**: Permite juntar-se a uma família existente no momento do registo ou posteriormente no ecrã de Perfil.
 - **Cargos e Permissões (`admin` vs `membro`)**:
