@@ -166,7 +166,7 @@ export default function SummaryScreen() {
                 ) : membros.length === 0 ? (
                     <EmptyState
                         title="Nenhum membro encontrado"
-                        subtitle="Convida familiares no separador Meu Perfil."
+                        subtitle="Convida familiares no separador Perfil."
                         icon="people-outline"
                     />
                 ) : (

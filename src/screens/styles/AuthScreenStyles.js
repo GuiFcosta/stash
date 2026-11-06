@@ -1,29 +1,45 @@
 import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
-    container: { flex: 1 },
-    scrollContent: { padding: 24, paddingTop: 40, justifyContent: 'center' },
-    brandingBox: { alignItems: 'center', marginBottom: 28 },
-    logoCircle: {
+    container: {
+        flex: 1,
+    },
+    scrollContent: {
+        flexGrow: 1,
+        justifyContent: 'center',
+        paddingHorizontal: 24,
+        paddingVertical: 16,
+    },
+    scrollContentTeclado: {
+        justifyContent: 'flex-start',
+        paddingTop: 8,
+    },
+    brandingBox: {
+        alignItems: 'center',
+        marginBottom: 26,
+    },
+    brandingBoxCompact: {
+        marginBottom: 10,
+    },
+    logoImage: {
         width: 72,
         height: 72,
-        borderRadius: 4,
-        borderWidth: 2,
-        borderColor: '#111827',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 14,
-        shadowColor: '#10B981',
-        shadowOffset: { width: 4, height: 4 },
-        shadowOpacity: 1,
-        shadowRadius: 0,
-        elevation: 5,
+        marginBottom: 12,
+    },
+    logoImageCompact: {
+        width: 44,
+        height: 44,
+        marginBottom: 4,
     },
     appTitle: {
-        fontSize: 32,
+        fontSize: 30,
         fontFamily: 'SpaceGrotesk_700Bold',
         letterSpacing: 1,
         textTransform: 'uppercase',
+    },
+    appTitleCompact: {
+        fontSize: 22,
+        letterSpacing: 0.5,
     },
     appSubtitle: {
         fontSize: 13,
@@ -37,7 +53,7 @@ export const styles = StyleSheet.create({
         borderWidth: 1.5,
         borderColor: '#111827',
         padding: 4,
-        marginBottom: 24,
+        marginBottom: 20,
     },
     tabButton: {
         flex: 1,
@@ -58,13 +74,15 @@ export const styles = StyleSheet.create({
     tabTextoAtivo: {
         fontFamily: 'SpaceGrotesk_700Bold',
     },
-    formBox: { gap: 6 },
+    formBox: {
+        gap: 6,
+    },
     inputLabel: {
         fontSize: 11,
         fontFamily: 'SpaceGrotesk_700Bold',
         textTransform: 'uppercase',
         letterSpacing: 0.8,
-        marginTop: 10,
+        marginTop: 8,
         marginBottom: 4,
     },
     inputWrapper: {
@@ -84,7 +102,7 @@ export const styles = StyleSheet.create({
         fontSize: 12,
         fontFamily: 'SpaceGrotesk_400Regular',
         marginTop: 4,
-        marginBottom: 10,
+        marginBottom: 8,
         lineHeight: 16,
     },
     btnSubmit: {

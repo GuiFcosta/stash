@@ -45,6 +45,7 @@ export default function HomeScreen() {
     const [novaCategoria, setNovaCategoria] = useState(CATEGORIAS_DE_GASTO[0]);
     const [quemGastou, setQuemGastou] = useState(userProfile?.nome || 'Eu');
     const [gastoEmEdicao, setGastoEmEdicao] = useState(null);
+    const [gastoSelecionadoAcoes, setGastoSelecionadoAcoes] = useState(null);
 
     const [despesasFixasExpandidas, setDespesasFixasExpandidas] = useState(true);
 
@@ -210,36 +211,7 @@ export default function HomeScreen() {
 
     const gerirGasto = (despesa) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        Alert.alert(
-            "Gerir Gasto",
-            `O que desejas fazer com a despesa de ${despesa.loja}?`,
-            [
-                { text: "Cancelar", style: "cancel" },
-                {
-                    text: "Editar",
-                    onPress: () => {
-                        setNovoValor(despesa.valor.toString().replace('.', ','));
-                        setNovaLoja(despesa.loja);
-                        setNovaCategoria(CATEGORIAS_DE_GASTO.includes(despesa.categoria) ? despesa.categoria : 'Outros');
-                        setQuemGastou(despesa.quem);
-                        setGastoEmEdicao(despesa);
-                        setModalVisivel(true);
-                    }
-                },
-                {
-                    text: "Apagar",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            await eliminarGasto(despesa.id);
-                            toast.info(`Despesa em ${despesa.loja} apagada.`, "Despesa Removida");
-                        } catch (error) {
-                            toast.error("Não foi possível apagar a despesa.", "Erro");
-                        }
-                    }
-                }
-            ]
-        );
+        setGastoSelecionadoAcoes(despesa);
     };
 
     const nomesMembros = membrosFamilia.map(m => m.nome);
@@ -762,6 +734,126 @@ export default function HomeScreen() {
             >
                 <Ionicons name="add" size={30} color="#FFFFFF" />
             </TouchableOpacity>
+
+            {/* MODAL DE AÇÕES DA DESPESA (Editar / Apagar / Cancelar) */}
+            <Modal
+                animationType="fade"
+                transparent={true}
+                visible={!!gastoSelecionadoAcoes}
+                onRequestClose={() => setGastoSelecionadoAcoes(null)}
+            >
+                <TouchableOpacity
+                    style={styles.modalFundo}
+                    activeOpacity={1}
+                    onPress={() => setGastoSelecionadoAcoes(null)}
+                >
+                    <View
+                        style={[
+                            styles.modalContent,
+                            {
+                                backgroundColor: colors.cardBg,
+                                borderColor: colors.border,
+                                padding: 20,
+                                width: '90%',
+                                maxWidth: 380,
+                            }
+                        ]}
+                    >
+                        {/* Header com dados do gasto */}
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                            <View style={{ flex: 1, marginRight: 8 }}>
+                                <Text style={{ fontFamily: 'SpaceGrotesk_700Bold', fontSize: 18, color: colors.textDark }} numberOfLines={1}>
+                                    {gastoSelecionadoAcoes?.loja}
+                                </Text>
+                                <Text style={{ fontFamily: 'SpaceGrotesk_500Medium', fontSize: 13, color: colors.textLight, marginTop: 4 }}>
+                                    {gastoSelecionadoAcoes?.categoria} • {Math.abs(gastoSelecionadoAcoes?.valor || 0).toFixed(2)} € • {gastoSelecionadoAcoes?.quem}
+                                </Text>
+                            </View>
+                            <TouchableOpacity onPress={() => setGastoSelecionadoAcoes(null)} style={{ padding: 4 }}>
+                                <Ionicons name="close" size={24} color={colors.textDark} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Botão EDITAR */}
+                        <TouchableOpacity
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                backgroundColor: colors.inputBg,
+                                borderColor: colors.border,
+                                borderWidth: 1.5,
+                                paddingVertical: 14,
+                                paddingHorizontal: 16,
+                                borderRadius: 4,
+                                marginBottom: 10,
+                                gap: 12,
+                            }}
+                            activeOpacity={0.8}
+                            onPress={() => {
+                                const despesa = gastoSelecionadoAcoes;
+                                setGastoSelecionadoAcoes(null);
+                                setNovoValor(despesa.valor.toString().replace('.', ','));
+                                setNovaLoja(despesa.loja);
+                                setNovaCategoria(CATEGORIAS_DE_GASTO.includes(despesa.categoria) ? despesa.categoria : 'Outros');
+                                setQuemGastou(despesa.quem);
+                                setGastoEmEdicao(despesa);
+                                setModalVisivel(true);
+                            }}
+                        >
+                            <Ionicons name="create-outline" size={20} color={colors.textDark} />
+                            <Text style={{ fontFamily: 'SpaceGrotesk_700Bold', fontSize: 13, color: colors.textDark, textTransform: 'uppercase' }}>
+                                Editar Despesa
+                            </Text>
+                        </TouchableOpacity>
+
+                        {/* Botão APAGAR */}
+                        <TouchableOpacity
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                backgroundColor: '#FEE2E2',
+                                borderColor: '#EF4444',
+                                borderWidth: 1.5,
+                                paddingVertical: 14,
+                                paddingHorizontal: 16,
+                                borderRadius: 4,
+                                marginBottom: 6,
+                                gap: 12,
+                            }}
+                            activeOpacity={0.8}
+                            onPress={async () => {
+                                const despesa = gastoSelecionadoAcoes;
+                                setGastoSelecionadoAcoes(null);
+                                try {
+                                    await eliminarGasto(despesa.id);
+                                    toast.info(`Despesa em ${despesa.loja} apagada.`, "Despesa Removida");
+                                } catch (error) {
+                                    toast.error("Não foi possível apagar a despesa.", "Erro");
+                                }
+                            }}
+                        >
+                            <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                            <Text style={{ fontFamily: 'SpaceGrotesk_700Bold', fontSize: 13, color: '#EF4444', textTransform: 'uppercase' }}>
+                                Eliminar Despesa
+                            </Text>
+                        </TouchableOpacity>
+
+                        {/* Botão CANCELAR */}
+                        <TouchableOpacity
+                            style={{
+                                alignItems: 'center',
+                                paddingVertical: 10,
+                                marginTop: 4,
+                            }}
+                            onPress={() => setGastoSelecionadoAcoes(null)}
+                        >
+                            <Text style={{ fontFamily: 'SpaceGrotesk_600SemiBold', fontSize: 12, color: colors.textLight, textTransform: 'uppercase' }}>
+                                Cancelar
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
 
             {/* MODAL ADICIONAR / EDITAR GASTO */}
             <Modal animationType="fade" transparent={true} visible={modalVisivel} onRequestClose={() => setModalVisivel(false)}>

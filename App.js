@@ -25,6 +25,7 @@ const Tab = createBottomTabNavigator();
 function MainTabs() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 16 : 10);
 
   return (
     <NavigationContainer>
@@ -33,20 +34,24 @@ function MainTabs() {
           headerShown: false,
           tabBarActiveTintColor: colors.textDark,
           tabBarInactiveTintColor: colors.textDisabled,
+          tabBarItemStyle: {
+            paddingVertical: 2,
+          },
           tabBarLabelStyle: {
             fontFamily: 'SpaceGrotesk_700Bold',
-            fontSize: 10,
+            fontSize: 9.5,
             textTransform: 'uppercase',
-            letterSpacing: 0.3,
+            letterSpacing: 0.1,
+            marginTop: 2,
           },
           tabBarStyle: {
             backgroundColor: colors.cardBg,
             borderTopColor: colors.borderSubtle || '#E5E7EB',
             borderTopWidth: 1,
             elevation: 12,
-            height: 64,
-            paddingBottom: 8,
-            paddingTop: 6,
+            height: 58 + bottomInset,
+            paddingBottom: bottomInset + 4,
+            paddingTop: 8,
           },
           tabBarIcon: ({ focused, color, size }) => {
             let iconName;
@@ -58,12 +63,12 @@ function MainTabs() {
               iconName = focused ? 'people' : 'people-outline';
             } else if (route.name === 'Relatórios') {
               iconName = focused ? 'stats-chart' : 'stats-chart-outline';
-            } else if (route.name === 'Meu Perfil') {
+            } else if (route.name === 'Perfil' || route.name === 'Meu Perfil') {
               iconName = focused ? 'person' : 'person-outline';
             }
             return (
               <View style={{ alignItems: 'center' }}>
-                <Ionicons name={iconName} size={20} color={focused ? colors.primaryLight : color} />
+                <Ionicons name={iconName} size={21} color={focused ? colors.primaryLight : color} />
                 {focused && (
                   <View style={{ width: 12, height: 2, backgroundColor: colors.primaryLight, marginTop: 2 }} />
                 )}
@@ -76,7 +81,7 @@ function MainTabs() {
         <Tab.Screen name="Objetivos" component={GoalsScreen} />
         <Tab.Screen name="Por Pessoa" component={SummaryScreen} />
         <Tab.Screen name="Relatórios" component={ReportsScreen} />
-        <Tab.Screen name="Meu Perfil" component={ProfileScreen} />
+        <Tab.Screen name="Perfil" component={ProfileScreen} options={{ tabBarLabel: 'Perfil' }} />
       </Tab.Navigator>
     </NavigationContainer>
   );
